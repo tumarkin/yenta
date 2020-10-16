@@ -1,8 +1,12 @@
+use getset::Getters;
 use min_max_heap::MinMaxHeap;
 
+#[derive(Getters)]
 pub struct MinMaxTieHeap<T> {
+    #[getset(get = "pub")]
     min_max_heap: MinMaxHeap<T>,
     size: usize,
+    #[getset(get = "pub")]
     ties: MinMaxHeap<T>,
     are_tied: Box<dyn Fn(&T, &T) -> bool>,
 }
@@ -40,6 +44,29 @@ impl<T: Ord> MinMaxTieHeap<T> {
                 self.clean_up_ties();
             }
         }
+    }
+
+    pub fn into_vec_desc(self) -> Vec<T> {
+        let mut v = self.min_max_heap.into_vec_desc();
+        v.append(&mut self.ties.into_vec_desc());
+        v
+    }
+
+    pub fn merge(self, other: Self) -> Self {
+        let mut mmth = MinMaxTieHeap::new(self.size, self.are_tied);
+        for element in self.min_max_heap {
+            mmth.push(element)
+        }
+        for element in self.ties {
+            mmth.push(element)
+        }
+        for element in other.min_max_heap {
+            mmth.push(element)
+        }
+        for element in other.ties {
+            mmth.push(element)
+        }
+        mmth
     }
 
     fn clean_up_ties(&mut self) {

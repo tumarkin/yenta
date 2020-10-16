@@ -1,4 +1,5 @@
 use counter::Counter;
+use getset::Getters;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -19,12 +20,14 @@ pub trait HasName {
 }
 
 /// An unprocessed Name suitable for serialization from/to a CSV or similar file.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Getters)]
 pub struct Name {
+    #[getset(get = "pub")]
     #[serde(rename = "name")]
-    pub unprocessed: String,
+    unprocessed: String,
+    #[getset(get = "pub")]
     #[serde(rename = "id")]
-    pub idx: String,
+    idx: String,
     // group: String,
 }
 
@@ -42,9 +45,11 @@ impl HasName for Name {
 
 /// A processed Name with a counter for each token, use the new constructor
 /// with a passed in text processing function.
-#[derive(Debug)]
+#[derive(Debug, Getters)]
 pub struct NameProcessed {
+    #[getset(get = "pub")]
     pub name: Name,
+    #[getset(get = "pub")]
     pub token_counter: Counter<String>,
 }
 
@@ -69,12 +74,14 @@ impl HasName for NameProcessed {
 }
 
 /// A weighted Name suitable for matching
-#[derive(Debug)]
+#[derive(Debug, Getters)]
 pub struct NameWeighted {
+    #[getset(get = "pub")]
     name: Name,
-    // token_counter: Counter<String>,
-    token_count_weights: BTreeMap<String, (usize, f64)>,
-    total_weight: f64,
+    #[getset(get = "pub")]
+    pub token_count_weights: BTreeMap<String, (usize, f64)>,
+    #[getset(get = "pub")]
+    pub total_weight: f64,
 }
 
 impl NameWeighted {

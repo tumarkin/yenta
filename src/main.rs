@@ -1,6 +1,7 @@
 extern crate clap;
 extern crate counter;
 extern crate deunicode;
+extern crate getset;
 extern crate indicatif;
 extern crate rayon;
 extern crate soundex;
@@ -21,35 +22,33 @@ use rayon::prelude::*;
 use io::read_name_csv;
 use types::{Name, NameProcessed, NameWeighted, IDF};
 
-use matching::MatchOptions;
+use matching::{do_match, MatchOptions};
 use preprocess::{prep_words, PreprocessingOptions};
 
+///
+/// Main loop
+///
+
 fn main() {
-    let (from_names_path, to_names_path, _output_path, prep_opts, _match_opts) = execute_cli();
+    let (from_names_path, to_names_path, _output_path, prep_opts, match_opts) = execute_cli();
 
     let to_names = read_name_csv(&from_names_path).expect("Unable to parse TO-CSV");
     let (to_names_weighted, idf) = process_names_and_form_idf(to_names, &prep_opts);
 
-    println!("{:?}", idf);
+    // println!("{:?}", idf);
 
     let from_names = read_name_csv(&to_names_path).expect("Unable to parse FROM-CSV");
-    for from_name in from_names.into_iter().take(5) {
-        // Turn this into a function
-        // unimplemented!();
-        let tc = prep_words(&from_name.unprocessed, &prep_opts)
-            .into_iter()
-            .collect();
 
-        let from_name_processed = NameProcessed {
-            name: from_name,
-            token_counter: tc,
-        };
-        println!("{:?}", from_name_processed);
-    }
+    let _: Vec<_> = from_names
+        .into_par_iter()
+        .progress()
+        .map(|from_name| {
+            let from_name_weighted = prep_and_weight_name(from_name, &prep_opts, &idf);
+            do_match(&from_name_weighted, &to_names_weighted, &match_opts)
+        })
+        .collect();
 
-    for to_name in to_names_weighted.iter().take(5) {
-        println!("{:?}", to_name);
-    }
+    ()
 }
 
 fn execute_cli() -> (String, String, String, PreprocessingOptions, MatchOptions) {
@@ -139,7 +138,25 @@ fn execute_cli() -> (String, String, String, PreprocessingOptions, MatchOptions)
             .map(|s| s.trim().parse().unwrap()),
     };
 
-    let match_opts = MatchOptions::new(0.01, 1, None);
+    let match_opts = MatchOptions {
+        minimum_score: cli_opts
+            .value_of("minimum-match-score")
+            .unwrap()
+            .trim()
+            .parse()
+            .unwrap(),
+        num_results: cli_opts
+            .value_of("number-of-results")
+            .unwrap()
+            .trim()
+            .parse()
+            .unwrap(),
+        ties_within: cli_opts
+            .value_of("include-ties_within")
+            .and_then(|s| s.trim().parse().ok()),
+    };
+
+    println!("{:?}", match_opts);
 
     (
         cli_opts.value_of("FROM-FILE").unwrap().to_string(),
@@ -160,20 +177,9 @@ fn process_names_and_form_idf(
     let names_processed: Vec<NameProcessed> = names
         .into_par_iter()
         .progress()
-        .map(|name| {
-            let tc = prep_words(&name.unprocessed, &prep_opts)
-                .into_iter()
-                .collect();
-
-            NameProcessed {
-                name,
-                token_counter: tc,
-            }
-        })
+        .map(|name| prep_name(name, &prep_opts))
         .collect();
-    // println!("{:?}", names_processed);
 
-    // let df: DocumentFrequency = names.iter().collect();
     let idf: IDF = IDF::new(&names_processed);
 
     let names_weighted: Vec<NameWeighted> = names_processed
@@ -181,4 +187,21 @@ fn process_names_and_form_idf(
         .map(|name_processed| NameWeighted::new(name_processed, &idf))
         .collect();
     (names_weighted, idf)
+}
+
+fn prep_name(name: Name, prep_opts: &PreprocessingOptions) -> NameProcessed {
+    let tc = prep_words(&name.unprocessed(), &prep_opts)
+        .into_iter()
+        .collect();
+
+    NameProcessed {
+        name,
+        token_counter: tc,
+    }
+}
+
+fn prep_and_weight_name(name: Name, prep_opts: &PreprocessingOptions, idf: &IDF) -> NameWeighted {
+    let name_processed = prep_name(name, &prep_opts);
+
+    NameWeighted::new(name_processed, &idf)
 }
