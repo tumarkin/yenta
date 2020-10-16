@@ -12,18 +12,16 @@ mod min_max_tie_heap;
 mod preprocess;
 mod types;
 
-// use counter::Counter;
-// use rayon::iter::{ParallelIterator, IntoParallelRefIterator};
-// use std::error::Error;
 use clap::{crate_version, App, Arg};
 use indicatif::ParallelProgressIterator;
 use rayon::prelude::*;
+use std::fs::OpenOptions;
+use std::io::Write;
 
 use io::read_name_csv;
-use types::{Name, NameProcessed, NameWeighted, IDF};
-
 use matching::{do_match, MatchOptions};
 use preprocess::{prep_words, PreprocessingOptions};
+use types::{Name, NameProcessed, NameWeighted, IDF};
 
 ///
 /// Main loop
@@ -35,8 +33,6 @@ fn main() {
     let to_names = read_name_csv(&from_names_path).expect("Unable to parse TO-CSV");
     let (to_names_weighted, idf) = process_names_and_form_idf(to_names, &prep_opts);
 
-    // println!("{:?}", idf);
-
     let from_names = read_name_csv(&to_names_path).expect("Unable to parse FROM-CSV");
 
     let _: Vec<_> = from_names
@@ -44,7 +40,21 @@ fn main() {
         .progress()
         .map(|from_name| {
             let from_name_weighted = prep_and_weight_name(from_name, &prep_opts, &idf);
-            do_match(&from_name_weighted, &to_names_weighted, &match_opts)
+            let best_matches: Vec<_> =
+                do_match(&from_name_weighted, &to_names_weighted, &match_opts);
+
+            for element in best_matches {
+                let output_str = format!(
+                    "{},{},{},{},{}",
+                    from_name_weighted.name().unprocessed(),
+                    from_name_weighted.name().idx(),
+                    element.to_name().unprocessed(),
+                    element.to_name().idx(),
+                    1
+                );
+
+                println!("{}", output_str);
+            }
         })
         .collect();
 
@@ -135,7 +145,7 @@ fn execute_cli() -> (String, String, String, PreprocessingOptions, MatchOptions)
         soundex: cli_opts.is_present("soundex"),
         trim_length: cli_opts
             .value_of("token-length")
-            .map(|s| s.trim().parse().unwrap()),
+            .map(|s| s.trim().parse().expect("Unable to parse token-length integer")),
     };
 
     let match_opts = MatchOptions {
@@ -144,15 +154,15 @@ fn execute_cli() -> (String, String, String, PreprocessingOptions, MatchOptions)
             .unwrap()
             .trim()
             .parse()
-            .unwrap(),
+            .expect("Unable to parse minimum-match-score floating point number"),
         num_results: cli_opts
             .value_of("number-of-results")
             .unwrap()
             .trim()
             .parse()
-            .unwrap(),
+            .expect("Unable to parse number-of-results integer"),
         ties_within: cli_opts
-            .value_of("include-ties_within")
+            .value_of("include-ties-within")
             .and_then(|s| s.trim().parse().ok()),
     };
 

@@ -1,5 +1,6 @@
 use getset::Getters;
-use rayon::prelude::*;
+// use serde::{Deserialize, Serialize};
+// use rayon::prelude::*;
 use std::cmp::{min, Ordering};
 
 use crate::min_max_tie_heap::MinMaxTieHeap;
@@ -15,8 +16,8 @@ pub struct MatchOptions {
 pub fn do_match<'a>(
     from_name: &'a NameWeighted,
     to_names: &'a Vec<NameWeighted>,
-    match_opts: &MatchOptions,
-) -> () { // Vec<MatchResult<'a>> {
+    match_opts: &'a MatchOptions,
+) -> Vec<MatchResult<'a>> {
     let best_matches: MinMaxTieHeap<_> = to_names
         .iter()
         .filter_map(|to_name| {
@@ -34,12 +35,7 @@ pub fn do_match<'a>(
                 mmth
             },
         );
-    // best_matches.into_vec_desc()
-    println!("Best matches for {:?}", from_name.name().unprocessed());
-
-    for element in best_matches.into_vec_desc() {
-        println!("    {} {}", element.score, element.to_name.unprocessed());
-    }
+    best_matches.into_vec_desc()
 }
 
 fn min_max_tie_heap_identity_element<'a>(
@@ -81,6 +77,7 @@ fn score_weighted_name<'a>(
 /// MatchResult is an compatible with MinMaxTieHeap for storing match results.
 #[derive(Debug, Getters)]
 pub struct MatchResult<'a> {
+    #[getset(get = "pub")]
     from_name: &'a Name,
     #[getset(get = "pub")]
     to_name: &'a Name,

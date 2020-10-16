@@ -31,12 +31,6 @@ pub struct Name {
     // group: String,
 }
 
-// impl Name {
-//     pub fn new(unprocessed: String, idx: String) -> Self {
-//         Name { unprocessed, idx }
-//     }
-// }
-
 impl HasName for Name {
     fn name(&self) -> &Name {
         &self
