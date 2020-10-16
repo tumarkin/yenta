@@ -1,7 +1,14 @@
-# yenta
+# yenta - a fast fuzzy name matcher for CSV files
+
+# Installation
+
+- Install Rust
+- Clone this repository
+- At the command line: `cargo install --release`
 
 # To Do
 
+- Parallel inside match function instead of at the name level
 - Benchmark BTreeMap/BTreeSet vs HashMap/HashSet
 - Options from Yente that need to be implemented
     * --phonix                 Preprocess words with Phonix algorithm.
