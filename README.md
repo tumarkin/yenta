@@ -10,11 +10,11 @@ A fast, fuzzy matchmaker for textual data.
 * **Robust**: *yenta* incorporates feautes that are commonly needed in name matching. It is both word-order and case insensitive (Shawn Spencer matches SPENCER, SHAWN). *yenta* removes punctuation by default.
 * **Unicode aware**: By default, *yenta* automatically converts unicode accented characters to their ASCII equivalents.
 * **Customizable**: Users may optionally allow for misspellings, implement phonetic algorithms, trim the constituent words of a name at a prespecified number of characters, output any number of potential matches (with and without ties), and combine any of the preceding customizations.
-* **High performance**: *yenta* is a multi-core program written in (Rust)[https://www.rust-lang.org/].
+* **High performance**: *yenta* is a multi-core program written in [Rust](https://www.rust-lang.org/), a blazingly fast and memory-efficient language.
 
 # Installation
 
-- Install (Rust)[https://www.rust-lang.org/tools/install]
+- Install [Rust](https://www.rust-lang.org/tools/install)
 - Clone this repository
 - At the command line, change to the root of the cloned repository and then type: `cargo install --release`
 
