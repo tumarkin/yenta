@@ -1,25 +1,14 @@
 use counter::Counter;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
+use std::cmp::min;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 /******************************************************************************/
-/* Name related types                                                         */
+/* Basic name types not suitable for matching                                 */
 /******************************************************************************/
-/// HasName defines a uniform interface for a group of data structures that contain a
-/// name.
-pub trait HasName {
-    fn name(&self) -> &Name;
 
-    // fn same_group<T>(&self, other: &T) -> bool
-    // where
-    //     T: HasName,
-    // {
-    //     self.name().group == other.name().group
-    // }
-}
-
-/// An unprocessed Name suitable for serialization from/to a CSV or similar file.
+/// An unprocessed Name capable of serialization from/to a tabular data file.
 #[derive(Debug, Serialize, Deserialize, Getters)]
 pub struct Name {
     #[getset(get = "pub")]
@@ -29,12 +18,6 @@ pub struct Name {
     #[serde(rename = "id")]
     idx: String,
     // group: String,
-}
-
-impl HasName for Name {
-    fn name(&self) -> &Name {
-        &self
-    }
 }
 
 /// A processed Name with a counter for each token, use the new constructor
@@ -61,21 +44,18 @@ pub struct NameProcessed {
 //     }
 // }
 
-impl HasName for NameProcessed {
-    fn name(&self) -> &Name {
-        &self.name
-    }
-}
-
+/*****************************************************************************/
+/* Weight name for exact token matching                                      */
+/*****************************************************************************/
 /// A weighted Name suitable for matching
 #[derive(Debug, Getters)]
 pub struct NameWeighted {
     #[getset(get = "pub")]
     name: Name,
     #[getset(get = "pub")]
-    pub token_count_weights: BTreeMap<String, (usize, f64)>,
+    token_count_weights: BTreeMap<String, (usize, f64)>,
     #[getset(get = "pub")]
-    pub total_weight: f64,
+    total_weight: f64,
 }
 
 impl NameWeighted {
@@ -101,9 +81,22 @@ impl NameWeighted {
     }
 }
 
-impl HasName for NameWeighted {
-    fn name(&self) -> &Name {
-        &self.name
+impl NameWeighted {
+    pub fn compute_match_score(&self, to_name: &Self) -> f64 {
+        let score_in_common: f64 = self
+            .token_count_weights()
+            .iter()
+            .filter_map(|(token, (count_in_from, weight))| {
+                to_name
+                    .token_count_weights()
+                    .get(token)
+                    .and_then(|(count_in_to, _)| {
+                        Some(min(*count_in_from, *count_in_to) as f64 * weight.powi(2))
+                    })
+            })
+            .sum();
+
+        score_in_common / (self.total_weight * to_name.total_weight)
     }
 }
 

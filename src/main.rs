@@ -3,6 +3,7 @@ extern crate counter;
 extern crate deunicode;
 extern crate getset;
 extern crate indicatif;
+extern crate ngrams;
 extern crate rayon;
 extern crate soundex;
 
@@ -13,55 +14,31 @@ mod preprocess;
 mod types;
 
 use clap::{crate_version, App, Arg};
-use indicatif::ParallelProgressIterator;
-use rayon::prelude::*;
-use std::fs::OpenOptions;
-use std::io::Write;
+use std::error::Error;
 
-use io::read_name_csv;
-use matching::{do_match, MatchOptions};
-use preprocess::{prep_words, PreprocessingOptions};
-use types::{Name, NameProcessed, NameWeighted, IDF};
-
-///
-/// Main loop
-///
+use crate::matching::{execute_match, MatchOptions};
+use crate::preprocess::PreprocessingOptions;
 
 fn main() {
-    let (from_names_path, to_names_path, _output_path, prep_opts, match_opts) = execute_cli();
-
-    let to_names = read_name_csv(&from_names_path).expect("Unable to parse TO-CSV");
-    let (to_names_weighted, idf) = process_names_and_form_idf(to_names, &prep_opts);
-
-    let from_names = read_name_csv(&to_names_path).expect("Unable to parse FROM-CSV");
-
-    let _: Vec<_> = from_names
-        .into_par_iter()
-        .progress()
-        .map(|from_name| {
-            let from_name_weighted = prep_and_weight_name(from_name, &prep_opts, &idf);
-            let best_matches: Vec<_> =
-                do_match(&from_name_weighted, &to_names_weighted, &match_opts);
-
-            for element in best_matches {
-                let output_str = format!(
-                    "{},{},{},{},{}",
-                    from_name_weighted.name().unprocessed(),
-                    from_name_weighted.name().idx(),
-                    element.to_name().unprocessed(),
-                    element.to_name().idx(),
-                    1
-                );
-
-                println!("{}", output_str);
-            }
-        })
-        .collect();
-
-    ()
+    if let Err(e) = execute_cli_and_match() {
+        println!("{}", e)
+    }
 }
 
-fn execute_cli() -> (String, String, String, PreprocessingOptions, MatchOptions) {
+fn execute_cli_and_match() -> Result<(), Box<dyn Error>> {
+    let (from_names_path, to_names_path, _output_path, prep_opts, match_opts) =
+        get_command_line_arguments()?;
+    execute_match(
+        &from_names_path,
+        &to_names_path,
+        &_output_path,
+        &prep_opts,
+        &match_opts,
+    )
+}
+
+fn get_command_line_arguments(
+) -> Result<(String, String, String, PreprocessingOptions, MatchOptions), Box<dyn Error>> {
     let cli_opts = App::new("Yenta")
         .version(crate_version!())
         // .author("Robert Tumarkin <r.tumarkin@unsw.edu.au>")
@@ -143,9 +120,11 @@ fn execute_cli() -> (String, String, String, PreprocessingOptions, MatchOptions)
         adjust_case: true,
         alphabetic_only: !cli_opts.is_present("retain-non-alphabetic"),
         soundex: cli_opts.is_present("soundex"),
-        trim_length: cli_opts
-            .value_of("token-length")
-            .map(|s| s.trim().parse().expect("Unable to parse token-length integer")),
+        trim_length: cli_opts.value_of("token-length").map(|s| {
+            s.trim()
+                .parse()
+                .expect("Unable to parse token-length integer")
+        }),
     };
 
     let match_opts = MatchOptions {
@@ -166,52 +145,11 @@ fn execute_cli() -> (String, String, String, PreprocessingOptions, MatchOptions)
             .and_then(|s| s.trim().parse().ok()),
     };
 
-    println!("{:?}", match_opts);
-
-    (
+    Ok((
         cli_opts.value_of("FROM-FILE").unwrap().to_string(),
         cli_opts.value_of("TO-FILE").unwrap().to_string(),
         cli_opts.value_of("output-file").unwrap().to_string(),
         prep_opts,
         match_opts,
-    )
-}
-
-/******************************************************************************/
-/* Algorithm components                                                       */
-/******************************************************************************/
-fn process_names_and_form_idf(
-    names: Vec<Name>,
-    prep_opts: &PreprocessingOptions,
-) -> (Vec<NameWeighted>, IDF) {
-    let names_processed: Vec<NameProcessed> = names
-        .into_par_iter()
-        .progress()
-        .map(|name| prep_name(name, &prep_opts))
-        .collect();
-
-    let idf: IDF = IDF::new(&names_processed);
-
-    let names_weighted: Vec<NameWeighted> = names_processed
-        .into_par_iter()
-        .map(|name_processed| NameWeighted::new(name_processed, &idf))
-        .collect();
-    (names_weighted, idf)
-}
-
-fn prep_name(name: Name, prep_opts: &PreprocessingOptions) -> NameProcessed {
-    let tc = prep_words(&name.unprocessed(), &prep_opts)
-        .into_iter()
-        .collect();
-
-    NameProcessed {
-        name,
-        token_counter: tc,
-    }
-}
-
-fn prep_and_weight_name(name: Name, prep_opts: &PreprocessingOptions, idf: &IDF) -> NameWeighted {
-    let name_processed = prep_name(name, &prep_opts);
-
-    NameWeighted::new(name_processed, &idf)
+    ))
 }

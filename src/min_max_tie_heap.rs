@@ -52,22 +52,22 @@ impl<T: Ord> MinMaxTieHeap<T> {
         v
     }
 
-    pub fn merge(self, other: Self) -> Self {
-        let mut mmth = MinMaxTieHeap::new(self.size, self.are_tied);
-        for element in self.min_max_heap {
-            mmth.push(element)
-        }
-        for element in self.ties {
-            mmth.push(element)
-        }
-        for element in other.min_max_heap {
-            mmth.push(element)
-        }
-        for element in other.ties {
-            mmth.push(element)
-        }
-        mmth
-    }
+    // pub fn merge(self, other: Self) -> Self {
+    //     let mut mmth = MinMaxTieHeap::new(self.size, self.are_tied);
+    //     for element in self.min_max_heap {
+    //         mmth.push(element)
+    //     }
+    //     for element in self.ties {
+    //         mmth.push(element)
+    //     }
+    //     for element in other.min_max_heap {
+    //         mmth.push(element)
+    //     }
+    //     for element in other.ties {
+    //         mmth.push(element)
+    //     }
+    //     mmth
+    // }
 
     fn clean_up_ties(&mut self) {
         let min_element_in_mmh = &self.min_max_heap.peek_min().unwrap();
@@ -84,30 +84,48 @@ impl<T: Ord> MinMaxTieHeap<T> {
     }
 }
 
+/*****************************************************************************/
+/* Testing                                                                   */
+/*****************************************************************************/
 #[cfg(test)]
 mod test {
     use super::*;
 
-    #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-    struct Wrapped(i64);
-
     #[test]
     fn test_0() {
-        let wrapped_are_tied: Box<Fn(&Wrapped, &Wrapped) -> bool> =
-            Box::new(|a: &Wrapped, b: &Wrapped| (a.0 - b.0).abs() <= 1);
-        let mut mmth: MinMaxTieHeap<Wrapped> = MinMaxTieHeap::new(2, wrapped_are_tied);
+        let are_tied: Box<Fn(&i64, &i64) -> bool> = Box::new(|a: &i64, b: &i64| (a - b).abs() <= 1);
+        let mut mmth: MinMaxTieHeap<i64> = MinMaxTieHeap::new(2, are_tied);
 
         for i in vec![1, 2, 2, 2, 3, 3, 3, 4, 5] {
-            mmth.push(Wrapped(i));
+            mmth.push(i);
         }
 
-        let mmh: MinMaxHeap<Wrapped> = MinMaxHeap::new();
+        let mmh: MinMaxHeap<i64> = MinMaxHeap::new();
         let in_min_max_heap = mmth.min_max_heap.into_vec_desc();
         let in_ties = mmth.ties.into_vec_desc();
 
         println!("Heap: {:?}", in_min_max_heap);
         println!("Ties: {:?}", in_ties);
-        assert_eq!(in_min_max_heap, vec![Wrapped(5), Wrapped(4)]);
-        assert_eq!(in_ties, vec![Wrapped(3), Wrapped(3), Wrapped(3)]);
+        assert_eq!(in_min_max_heap, vec![5, 4,]);
+        assert_eq!(in_ties, vec![3, 3, 3,]);
+    }
+
+    #[test]
+    fn test_1() {
+        let are_tied: Box<Fn(&i64, &i64) -> bool> = Box::new(|a: &i64, b: &i64| (a - b).abs() <= 1);
+        let mut mmth: MinMaxTieHeap<i64> = MinMaxTieHeap::new(2, are_tied);
+
+        for i in vec![1, 2, 2, 2, 3, 3, 3, 4, 5, 5, 5] {
+            mmth.push(i);
+        }
+
+        let mmh: MinMaxHeap<i64> = MinMaxHeap::new();
+        let in_min_max_heap = mmth.min_max_heap.into_vec_desc();
+        let in_ties = mmth.ties.into_vec_desc();
+
+        println!("Heap: {:?}", in_min_max_heap);
+        println!("Ties: {:?}", in_ties);
+        assert_eq!(in_min_max_heap, vec![5, 5,]);
+        assert_eq!(in_ties, vec![5, 4,]);
     }
 }

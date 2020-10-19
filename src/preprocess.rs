@@ -1,4 +1,26 @@
 use deunicode::deunicode;
+// use ngrams::Ngram;
+use rayon::prelude::*;
+
+use crate::types::{Name, NameProcessed};
+
+pub fn prep_names(names: Vec<Name>, prep_opts: &PreprocessingOptions) -> Vec<NameProcessed> {
+    names
+        .into_par_iter()
+        .map(|n| prep_name(n, &prep_opts))
+        .collect()
+}
+
+pub fn prep_name(name: Name, prep_opts: &PreprocessingOptions) -> NameProcessed {
+    let tc = prep_words(&name.unprocessed(), &prep_opts)
+        .into_iter()
+        .collect();
+
+    NameProcessed {
+        name,
+        token_counter: tc,
+    }
+}
 
 pub fn prep_words(source_string: &str, opts: &PreprocessingOptions) -> Vec<String> {
     source_string
@@ -24,7 +46,7 @@ pub struct PreprocessingOptions {
     pub trim_length: Option<usize>,
 }
 
-// A newtype that allows for nicer chaning of functions during text preprocessing
+/// A newtype that allows for nicer chaning of functions during text preprocessing
 struct PrepString(String);
 
 impl PrepString {
@@ -66,4 +88,18 @@ impl PrepString {
             None => self,
         }
     }
+
+    // fn n_gram(self, window_size: usize) -> Vec<String> {
+    //     unimplemented!();
+    //     // This needs to pad small strings
+    //     self.0
+    //         .chars()
+    //         .ngrams(window_size)
+    //         .map(|char_vec| mconcat_chars(char_vec))
+    //         .collect()
+    // }
 }
+
+// fn mconcat_chars(cs: Vec<char>) -> String {
+//     cs.iter().collect()
+// }
