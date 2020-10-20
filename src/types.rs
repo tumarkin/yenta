@@ -15,10 +15,12 @@ pub struct Name {
     #[serde(rename = "name")]
     unprocessed: String,
     #[getset(get = "pub")]
-    #[serde(rename = "id")]
+    #[serde(rename = "id", default )]
     idx: String,
     // group: String,
 }
+
+
 
 /// A processed Name with a counter for each token, use the new constructor
 /// with a passed in text processing function.
@@ -45,7 +47,7 @@ pub struct NameProcessed {
 // }
 
 /*****************************************************************************/
-/* Weight name for exact token matching                                      */
+/* Weighted name for exact token matching                                    */
 /*****************************************************************************/
 /// A weighted Name suitable for matching
 #[derive(Debug, Getters)]
@@ -79,9 +81,7 @@ impl NameWeighted {
             total_weight,
         }
     }
-}
 
-impl NameWeighted {
     pub fn compute_match_score(&self, to_name: &Self) -> f64 {
         let score_in_common: f64 = self
             .token_count_weights()
@@ -97,6 +97,64 @@ impl NameWeighted {
             .sum();
 
         score_in_common / (self.total_weight * to_name.total_weight)
+    }
+}
+
+/*****************************************************************************/
+/* Ngram name for approximate  matching                                      */
+/*****************************************************************************/
+/// A Name using NGrams suitable for matching
+#[derive(Debug, Getters)]
+pub struct NameNGrams {
+    #[getset(get = "pub")]
+    name: Name,
+    #[getset(get = "pub")]
+    // token_ngram_weight: Vec<(String, NGram, f64)>,
+    #[getset(get = "pub")]
+    total_weight: f64,
+}
+
+data NGram(Vec<String>);
+
+impl NameNGrams {
+    pub fn new(np: NameProcessed, idf: &IDF) -> Self {
+        todo!();
+        // let mut token_count_weights: BTreeMap<String, (usize, f64)> = BTreeMap::new();
+        // let mut total_weight: f64 = 0.0;
+
+        // for (token, count) in np.token_counter.iter() {
+        //     let weight = idf.lookup(token);
+        //     token_count_weights.insert(token.to_string(), (*count, weight));
+
+        //     total_weight += (*count as f64) * weight.powi(2);
+        // }
+
+        // total_weight = total_weight.sqrt();
+
+        // NameWeighted {
+        //     name: np.name,
+        //     // token_counter: np.token_counter,
+        //     token_count_weights,
+        //     total_weight,
+        // }
+    }
+    
+    pub fn compute_match_score(&self, to_name: &Self) -> f64 {
+        todo!();
+        // let sicore_in_common: f64 = self
+        //     .token_count_weights()
+        //     .iter()
+        //     .filter_map(|(token, (count_in_from, weight))| {
+        //         to_name
+        //             .token_count_weights()
+        //             .get(token)
+        //             .and_then(|(count_in_to, _)| {
+        //                 Some(min(*count_in_from, *count_in_to) as f64 * weight.powi(2))
+        //             })
+        //     })
+        //     .sum();
+
+        // score_in_common / (self.total_weight * to_name.total_weight)
     }
 }
 
