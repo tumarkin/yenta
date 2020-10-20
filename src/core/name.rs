@@ -2,7 +2,9 @@ use counter::Counter;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
 use std::cmp::min;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::BTreeMap;
+
+use super::idf::{HasDocument, IDF};
 
 /******************************************************************************/
 /* Basic name types not suitable for matching                                 */
@@ -15,36 +17,46 @@ pub struct Name {
     #[serde(rename = "name")]
     unprocessed: String,
     #[getset(get = "pub")]
-    #[serde(rename = "id", default )]
+    #[serde(rename = "id", default)]
     idx: String,
     // group: String,
 }
-
-
 
 /// A processed Name with a counter for each token, use the new constructor
 /// with a passed in text processing function.
 #[derive(Debug, Getters)]
 pub struct NameProcessed {
     #[getset(get = "pub")]
-    pub name: Name,
+    name: Name,
     #[getset(get = "pub")]
-    pub token_counter: Counter<String>,
+    token_counter: Counter<String>,
 }
 
-// impl NameProcessed {
-//     fn new<F>(name: Name, text_processor: F) -> NameProcessed
-//     where
-//         F: Fn(&str) -> Vec<String>,
-//     {
-//         let token_counter: Counter<String> =
-//             text_processor(&name.unprocessed).into_iter().collect();
-//         NameProcessed {
-//             name,
-//             token_counter,
-//         }
-//     }
-// }
+impl NameProcessed {
+    pub fn new(name: Name, token_counter: Counter<String>) -> Self {
+        NameProcessed {
+            name,
+            token_counter,
+        }
+    }
+    //     fn new<F>(name: Name, text_processor: F) -> NameProcessed
+    //     where
+    //         F: Fn(&str) -> Vec<String>,
+    //     {
+    //         let token_counter: Counter<String> =
+    //             text_processor(&name.unprocessed).into_iter().collect();
+    //         NameProcessed {
+    //             name,
+    //             token_counter,
+    //         }
+    //     }
+}
+
+impl HasDocument for NameProcessed {
+    fn get_tokens(&self) -> Vec<&String> {
+        self.token_counter().keys().into_iter().collect()
+    }
+}
 
 /*****************************************************************************/
 /* Weighted name for exact token matching                                    */
@@ -103,132 +115,59 @@ impl NameWeighted {
 /*****************************************************************************/
 /* Ngram name for approximate  matching                                      */
 /*****************************************************************************/
-/// A Name using NGrams suitable for matching
-#[derive(Debug, Getters)]
-pub struct NameNGrams {
-    #[getset(get = "pub")]
-    name: Name,
-    #[getset(get = "pub")]
-    // token_ngram_weight: Vec<(String, NGram, f64)>,
-    #[getset(get = "pub")]
-    total_weight: f64,
-}
+// /// A Name using NGrams suitable for matching
+// #[derive(Debug, Getters)]
+// pub struct NameNGrams {
+//     #[getset(get = "pub")]
+//     name: Name,
+//     #[getset(get = "pub")]
+//     // token_ngram_weight: Vec<(String, NGram, f64)>,
+//     #[getset(get = "pub")]
+//     total_weight: f64,
+// }
 
-data NGram(Vec<String>);
+// // data NGram(Vec<String>);
 
-impl NameNGrams {
-    pub fn new(np: NameProcessed, idf: &IDF) -> Self {
-        todo!();
-        // let mut token_count_weights: BTreeMap<String, (usize, f64)> = BTreeMap::new();
-        // let mut total_weight: f64 = 0.0;
+// impl NameNGrams {
+//     pub fn new(np: NameProcessed, idf: &IDF) -> Self {
+//         let mut token_count_weights: BTreeMap<String, (usize, f64)> = BTreeMap::new();
+//         let mut total_weight: f64 = 0.0;
 
-        // for (token, count) in np.token_counter.iter() {
-        //     let weight = idf.lookup(token);
-        //     token_count_weights.insert(token.to_string(), (*count, weight));
+//         for (token, count) in np.token_counter.iter() {
+//             let weight = idf.lookup(token);
+//             token_count_weights.insert(token.to_string(), (*count, weight));
 
-        //     total_weight += (*count as f64) * weight.powi(2);
-        // }
+//             total_weight += (*count as f64) * weight.powi(2);
+//         }
 
-        // total_weight = total_weight.sqrt();
+//         total_weight = total_weight.sqrt();
 
-        // NameWeighted {
-        //     name: np.name,
-        //     // token_counter: np.token_counter,
-        //     token_count_weights,
-        //     total_weight,
-        // }
-    }
-    
-    pub fn compute_match_score(&self, to_name: &Self) -> f64 {
-        todo!();
-        // let sicore_in_common: f64 = self
-        //     .token_count_weights()
-        //     .iter()
-        //     .filter_map(|(token, (count_in_from, weight))| {
-        //         to_name
-        //             .token_count_weights()
-        //             .get(token)
-        //             .and_then(|(count_in_to, _)| {
-        //                 Some(min(*count_in_from, *count_in_to) as f64 * weight.powi(2))
-        //             })
-        //     })
-        //     .sum();
+//         NameWeighted {
+//             name: np.name,
+//             // token_counter: np.token_counter,
+//             token_count_weights,
+//             total_weight,
+//         }
+//     }
 
-        // score_in_common / (self.total_weight * to_name.total_weight)
-    }
-}
+//     pub fn compute_match_score(&self, to_name: &Self) -> f64 {
+//         todo!();
+//         // let sicore_in_common: f64 = self
+//         //     .token_count_weights()
+//         //     .iter()
+//         //     .filter_map(|(token, (count_in_from, weight))| {
+//         //         to_name
+//         //             .token_count_weights()
+//         //             .get(token)
+//         //             .and_then(|(count_in_to, _)| {
+//         //                 Some(min(*count_in_from, *count_in_to) as f64 * weight.powi(2))
+//         //             })
+//         //     })
+//         //     .sum();
 
-/******************************************************************************/
-/*  Document   related   types                                                */
-/******************************************************************************/
-
-/// Document frequency counter which can be converted to an IDF.
-#[derive(Debug)]
-struct DocumentFrequency {
-    num_docs: usize,
-    document_frequency: Counter<String>,
-}
-
-impl DocumentFrequency {
-    fn new() -> Self {
-        DocumentFrequency {
-            num_docs: 0,
-            document_frequency: Counter::new(),
-        }
-    }
-
-    fn add_name(&mut self, name_processed: &NameProcessed) -> () {
-        let unique_tokens: HashSet<&String> =
-            name_processed.token_counter.keys().into_iter().collect();
-        for k in unique_tokens {
-            self.document_frequency[k] += 1;
-        }
-        self.num_docs += 1
-    }
-}
-
-/// Inverse document frequency values
-#[derive(Debug)]
-pub struct IDF {
-    weight_map: HashMap<String, f64>,
-    weight_for_missing: f64,
-}
-
-impl IDF {
-    pub fn new(names: &Vec<NameProcessed>) -> Self {
-        let mut df = DocumentFrequency::new();
-
-        for n in names {
-            df.add_name(n);
-        }
-
-        let num_docs = df.num_docs;
-        let ln_num_docs = (num_docs as f64).ln();
-
-        let idf = df
-            .document_frequency
-            .iter()
-            .map(|(k, v)| {
-                (
-                    k.to_string(),
-                    ln_num_docs - (*v as f64).ln(), // f64::value_from(*v).unwrap().ln(),
-                )
-            })
-            .collect();
-        IDF {
-            weight_map: idf,
-            weight_for_missing: ln_num_docs,
-        }
-    }
-}
-
-impl IDF {
-    fn lookup(&self, token: &str) -> f64 {
-        self.weight_map
-            .get(token)
-            .map_or(self.weight_for_missing, |v| *v)
-    }
-}
+//         // score_in_common / (self.total_weight * to_name.total_weight)
+//     }
+// }
 
 // /*****************************************************************************/
 // /* Tests                                                                     */

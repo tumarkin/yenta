@@ -6,11 +6,12 @@ use std::cmp::Ordering;
 use std::error::Error;
 use std::marker::Send;
 
+use crate::core::idf::IDF;
+use crate::core::min_max_tie_heap::MinMaxTieHeap;
+use crate::core::name::{Name, NameProcessed, NameWeighted};
 use crate::io::read_name_csv;
-use crate::min_max_tie_heap::MinMaxTieHeap;
 use crate::preprocess::prep_name;
 use crate::preprocess::{prep_names, PreprocessingOptions};
-use crate::types::{Name, NameProcessed, NameWeighted, IDF};
 
 /******************************************************************************/
 /* Configuration options                                                      */

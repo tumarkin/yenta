@@ -30,6 +30,7 @@ If *yenta* has in any way made your life easier, please send me an email or star
 
 # To Do
 
+- NameProcessed::new takes token iterator instead of Counter
 - Parallel inside match function instead of at the name level
 - Benchmark BTreeMap/BTreeSet vs HashMap/HashSet
 - Options from Yente that need to be implemented

@@ -2,7 +2,7 @@ use deunicode::deunicode;
 // use ngrams::Ngram;
 use rayon::prelude::*;
 
-use crate::types::{Name, NameProcessed};
+use crate::core::name::{Name, NameProcessed};
 
 pub fn prep_names(names: Vec<Name>, prep_opts: &PreprocessingOptions) -> Vec<NameProcessed> {
     names
@@ -12,14 +12,11 @@ pub fn prep_names(names: Vec<Name>, prep_opts: &PreprocessingOptions) -> Vec<Nam
 }
 
 pub fn prep_name(name: Name, prep_opts: &PreprocessingOptions) -> NameProcessed {
-    let tc = prep_words(&name.unprocessed(), &prep_opts)
+    let token_counter = prep_words(&name.unprocessed(), &prep_opts)
         .into_iter()
         .collect();
 
-    NameProcessed {
-        name,
-        token_counter: tc,
-    }
+    NameProcessed::new(name, token_counter)
 }
 
 pub fn prep_words(source_string: &str, opts: &PreprocessingOptions) -> Vec<String> {

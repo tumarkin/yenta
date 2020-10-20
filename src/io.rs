@@ -1,9 +1,9 @@
-extern crate csv;
+// extern crate csv;
 
 use std::error::Error;
 use std::fs::File;
 
-use crate::types::Name;
+use crate::core::name::Name;
 
 pub fn read_name_csv(file_path: &str) -> Result<Vec<Name>, Box<dyn Error>> {
     let file = File::open(file_path)?;

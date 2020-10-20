@@ -1,17 +1,16 @@
-extern crate clap;
-extern crate counter;
-extern crate deunicode;
-extern crate getset;
-extern crate indicatif;
-extern crate ngrams;
-extern crate rayon;
-extern crate soundex;
+// extern crate clap;
+// extern crate counter;
+// extern crate deunicode;
+// extern crate getset;
+// extern crate indicatif;
+// extern crate ngrams;
+// extern crate rayon;
+// extern crate soundex;
 
+mod core;
 mod io;
 mod matching;
-mod min_max_tie_heap;
 mod preprocess;
-mod types;
 
 use clap::{crate_version, App, Arg};
 use std::error::Error;
@@ -20,21 +19,21 @@ use crate::matching::{execute_match, MatchOptions};
 use crate::preprocess::PreprocessingOptions;
 
 fn main() {
-    if let Err(e) = execute_cli_and_match() {
+    let res = get_command_line_arguments().and_then(
+        |(from_names_path, to_names_path, _output_path, prep_opts, match_opts)| {
+            execute_match(
+                &from_names_path,
+                &to_names_path,
+                &_output_path,
+                &prep_opts,
+                &match_opts,
+            )
+        },
+    );
+
+    if let Err(e) = res {
         println!("{}", e)
     }
-}
-
-fn execute_cli_and_match() -> Result<(), Box<dyn Error>> {
-    let (from_names_path, to_names_path, _output_path, prep_opts, match_opts) =
-        get_command_line_arguments()?;
-    execute_match(
-        &from_names_path,
-        &to_names_path,
-        &_output_path,
-        &prep_opts,
-        &match_opts,
-    )
 }
 
 fn get_command_line_arguments(
