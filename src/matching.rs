@@ -7,7 +7,7 @@ use std::marker::Send;
 
 use crate::core::idf::IDF;
 use crate::core::min_max_tie_heap::MinMaxTieHeap;
-use crate::core::name::{Name, NameProcessed, NameWeighted};
+use crate::core::name::{Name, NameNGrams, NameProcessed, NameWeighted};
 use crate::preprocess::{prep_name, prep_names, PreprocessingOptions};
 
 /******************************************************************************/
@@ -28,7 +28,7 @@ pub struct MatchOptions {
 pub struct MatchModeExactMatch;
 
 #[derive(Debug)]
-pub struct MatchMadeNGram(isize);
+pub struct MatchModeNGram(usize);
 
 pub trait MatchMode {
     type MatchableData;
@@ -57,6 +57,26 @@ impl MatchMode for MatchModeExactMatch {
             from_name: &from_name_weighted.name(),
             to_name: &to_name_weighted.name(),
             score: from_name_weighted.compute_match_score(&to_name_weighted),
+        }
+    }
+}
+
+impl MatchMode for MatchModeNGram {
+    type MatchableData = NameNGrams;
+
+    fn make_matchable_name(&self, np: NameProcessed, idf: &IDF) -> Self::MatchableData {
+        NameNGrams::new(np, &idf, self.0)
+    }
+
+    fn score_match<'a>(
+        &self,
+        from_name_ngram: &'a Self::MatchableData,
+        to_name_ngram: &'a Self::MatchableData,
+    ) -> MatchResult<'a> {
+        MatchResult {
+            from_name: &from_name_ngram.name(),
+            to_name: &to_name_ngram.name(),
+            score: from_name_ngram.compute_match_score(&to_name_ngram),
         }
     }
 }

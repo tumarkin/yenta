@@ -1,5 +1,4 @@
 use deunicode::deunicode;
-// use ngrams::Ngram;
 use rayon::prelude::*;
 
 use crate::core::name::{Name, NameProcessed};
@@ -85,18 +84,4 @@ impl PrepString {
             None => self,
         }
     }
-
-    // fn n_gram(self, window_size: usize) -> Vec<String> {
-    //     unimplemented!();
-    //     // This needs to pad small strings
-    //     self.0
-    //         .chars()
-    //         .ngrams(window_size)
-    //         .map(|char_vec| mconcat_chars(char_vec))
-    //         .collect()
-    // }
 }
-
-// fn mconcat_chars(cs: Vec<char>) -> String {
-//     cs.iter().collect()
-// }
