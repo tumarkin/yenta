@@ -11,24 +11,19 @@ mod core;
 mod matching;
 mod preprocess;
 
-use clap::{crate_version, App, Arg};
+use clap;
+use clap::{crate_version, value_t, App, Arg, ArgGroup};
 use std::error::Error;
 
-use crate::matching::{execute_match, MatchOptions};
+use crate::core::args::IoArgs;
+use crate::matching::{execute_match, MatchModeEnum, MatchOptions};
 use crate::preprocess::PreprocessingOptions;
 
 fn main() {
-    let res = get_command_line_arguments().and_then(
-        |(from_names_path, to_names_path, _output_path, prep_opts, match_opts)| {
-            execute_match(
-                &from_names_path,
-                &to_names_path,
-                &_output_path,
-                &prep_opts,
-                &match_opts,
-            )
-        },
-    );
+    let res =
+        get_command_line_arguments().and_then(|(io_args, prep_opts, match_mode, match_opts)| {
+            execute_match(&io_args, &prep_opts, &match_mode, &match_opts)
+        });
 
     if let Err(e) = res {
         println!("{}", e)
@@ -36,7 +31,7 @@ fn main() {
 }
 
 fn get_command_line_arguments(
-) -> Result<(String, String, String, PreprocessingOptions, MatchOptions), Box<dyn Error>> {
+) -> Result<(IoArgs, PreprocessingOptions, MatchModeEnum, MatchOptions), Box<dyn Error>> {
     let cli_opts = App::new("Yenta")
         .version(crate_version!())
         // .author("Robert Tumarkin <r.tumarkin@unsw.edu.au>")
@@ -52,6 +47,18 @@ fn get_command_line_arguments(
                 .help("...to names in this file")
                 .required(true)
                 .index(2),
+        )
+        .arg(
+            Arg::with_name("token-match")
+                .long("token-match")
+                .help("Match on processed tokens")
+        )
+        .arg(
+            Arg::with_name("ngram-match")
+                .long("ngram-match")
+                .value_name("INT")
+                .takes_value(true)
+                .help("Match on processed n-grams")
         )
         .arg(
             Arg::with_name("retain-non-alphabetic")
@@ -110,44 +117,77 @@ fn get_command_line_arguments(
                 .help("Save results to FILEPATH")
                 .required(true),
         )
+        .group(
+            ArgGroup::with_name("match-mode")
+                .arg("token-match")
+                .arg("ngram-match"),
+        )
         .after_help("More details and Wiki at github.com/tumarkin/yenta")
         .get_matches();
 
+    // IO argument parsing
+    let from_file = cli_opts.value_of("FROM-FILE").unwrap().to_string();
+    let to_file = cli_opts.value_of("TO-FILE").unwrap().to_string();
+    let output_file = cli_opts.value_of("output-file").unwrap().to_string();
+
+    let io_args = IoArgs {
+        from_file,
+        to_file,
+        output_file,
+    };
+
+    let trim_length = cli_opts.value_of("token-length").map_or(
+        Ok(None), |_| {
+            let tl = value_t!(cli_opts.value_of("token-length"), usize).map_err(|e| format_clap_error(e, "token-length"))?;
+            Ok(Some(tl))
+            })?;
+        
+
+    // Preprocessing options parsing
     let prep_opts = PreprocessingOptions {
         adjust_unicode: !cli_opts.is_present("retain-unicode"),
         adjust_case: true,
         alphabetic_only: !cli_opts.is_present("retain-non-alphabetic"),
         soundex: cli_opts.is_present("soundex"),
-        trim_length: cli_opts.value_of("token-length").map(|s| {
-            s.trim()
-                .parse()
-                .expect("Unable to parse token-length integer")
-        }),
+        trim_length
+        // : cli_opts.value_of("token-length").map(|s| {
+        //     s.trim()
+        //         .parse()
+        //         .expect("Unable to parse token-length integer")
+        // }),
     };
 
+    // Matchmode option parsing
+    let mut match_mode = MatchModeEnum::ExactMatch;
+    if let Some(_) = cli_opts.value_of("ngram-match") {
+        let ngram_size = value_t!(cli_opts.value_of("ngram-match"), usize).map_err(|e| format_clap_error(e, "ngram-match"))?;
+        match_mode = MatchModeEnum::NGramMatch(ngram_size);
+    }
+    
+
+    // Matching option parsing
+    let minimum_score = value_t!(cli_opts.value_of("minimum-match-score"), f64)
+        .map_err(|e| format_clap_error(e, "minimum-score"))?;
+    let num_results = value_t!(cli_opts.value_of("number-of-results"), usize)
+        .map_err(|e| format_clap_error(e, "number-of-resuts"))?;
+
     let match_opts = MatchOptions {
-        minimum_score: cli_opts
-            .value_of("minimum-match-score")
-            .unwrap()
-            .trim()
-            .parse()
-            .expect("Unable to parse minimum-match-score floating point number"),
-        num_results: cli_opts
-            .value_of("number-of-results")
-            .unwrap()
-            .trim()
-            .parse()
-            .expect("Unable to parse number-of-results integer"),
+        minimum_score,
+        num_results,
         ties_within: cli_opts
             .value_of("include-ties-within")
             .and_then(|s| s.trim().parse().ok()),
     };
 
-    Ok((
-        cli_opts.value_of("FROM-FILE").unwrap().to_string(),
-        cli_opts.value_of("TO-FILE").unwrap().to_string(),
-        cli_opts.value_of("output-file").unwrap().to_string(),
-        prep_opts,
-        match_opts,
-    ))
+    Ok((io_args, prep_opts, match_mode, match_opts))
+}
+
+/*****************************************************************************/
+// Utility functions
+/*****************************************************************************/
+fn format_clap_error(e: clap::Error, field: &str) -> clap::Error {
+    clap::Error {
+        message: format!("{} for \"{}\"", e.message, field),
+        ..e
+    }
 }

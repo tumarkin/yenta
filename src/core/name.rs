@@ -3,7 +3,7 @@ use getset::Getters;
 use itertools::iproduct;
 use ngrams::Ngram;
 use serde::{Deserialize, Serialize};
-use std::cmp::{min, Reverse};
+use std::cmp::min;
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::fs::File;
@@ -201,7 +201,7 @@ impl NameNGrams {
         let mut score_in_common = 0.0;
         let mut from_tokens_used: Counter<String> = Counter::new();
         let mut to_tokens_used: Counter<String> = Counter::new();
-        
+
         while !sorted_combination_queue.is_empty() {
             let (this_score, from_token, to_token) = sorted_combination_queue.pop().unwrap();
             score_in_common += this_score;
@@ -210,16 +210,20 @@ impl NameNGrams {
             to_tokens_used[to_token] += 1;
 
             if from_tokens_used[from_token] == self.token_counter[from_token] {
-                sorted_combination_queue = sorted_combination_queue.into_iter().filter(
-                    |(_, ft, _)| ft != &from_token).collect();
+                sorted_combination_queue = sorted_combination_queue
+                    .into_iter()
+                    .filter(|(_, ft, _)| ft != &from_token)
+                    .collect();
             }
 
             if to_tokens_used[to_token] == self.token_counter[to_token] {
-                sorted_combination_queue = sorted_combination_queue.into_iter().filter(
-                    |(_, _, tt)| tt != &to_token).collect();
+                sorted_combination_queue = sorted_combination_queue
+                    .into_iter()
+                    .filter(|(_, _, tt)| tt != &to_token)
+                    .collect();
             }
         }
-                score_in_common / (self.total_weight * to_name.total_weight)
+        score_in_common / (self.total_weight * to_name.total_weight)
     }
 }
 

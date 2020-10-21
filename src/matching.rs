@@ -5,6 +5,7 @@ use std::cmp::Ordering;
 use std::error::Error;
 use std::marker::Send;
 
+use crate::core::args::IoArgs;
 use crate::core::idf::IDF;
 use crate::core::min_max_tie_heap::MinMaxTieHeap;
 use crate::core::name::{Name, NameNGrams, NameProcessed, NameWeighted};
@@ -24,11 +25,16 @@ pub struct MatchOptions {
 /******************************************************************************/
 /* Match modes                                                                */
 /******************************************************************************/
-#[derive(Debug)]
-pub struct MatchModeExactMatch;
+pub enum MatchModeEnum {
+    ExactMatch,
+    NGramMatch(usize),
+}
 
 #[derive(Debug)]
-pub struct MatchModeNGram(usize);
+pub struct ExactMatch;
+
+#[derive(Debug)]
+pub struct NGramMatch(usize);
 
 pub trait MatchMode {
     type MatchableData;
@@ -41,7 +47,7 @@ pub trait MatchMode {
     ) -> MatchResult<'a>;
 }
 
-impl MatchMode for MatchModeExactMatch {
+impl MatchMode for ExactMatch {
     type MatchableData = NameWeighted;
 
     fn make_matchable_name(&self, np: NameProcessed, idf: &IDF) -> Self::MatchableData {
@@ -61,7 +67,7 @@ impl MatchMode for MatchModeExactMatch {
     }
 }
 
-impl MatchMode for MatchModeNGram {
+impl MatchMode for NGramMatch {
     type MatchableData = NameNGrams;
 
     fn make_matchable_name(&self, np: NameProcessed, idf: &IDF) -> Self::MatchableData {
@@ -85,18 +91,17 @@ impl MatchMode for MatchModeNGram {
 /* Matching                                                                  */
 /*****************************************************************************/
 pub fn execute_match(
-    from_names_path: &String,
-    to_names_path: &String,
-    _output_path: &String,
+    io_args: &IoArgs,
     prep_opts: &PreprocessingOptions,
+    _match_mode: &MatchModeEnum,
     match_opts: &MatchOptions,
 ) -> Result<(), Box<dyn Error>> {
     // Load in both name files. This is done immediately and eagerly to ensure that
     // all names in both files are properly formed.
     let to_names =
-        Name::from_csv(&from_names_path).map_err(|e| format!("Unable to parse TO-CSV: {}", e))?;
+        Name::from_csv(&io_args.from_file).map_err(|e| format!("Unable to parse TO-CSV: {}", e))?;
     let from_names =
-        Name::from_csv(&to_names_path).map_err(|e| format!("Unable to parse FROM-CSV: {}", e))?;
+        Name::from_csv(&io_args.to_file).map_err(|e| format!("Unable to parse FROM-CSV: {}", e))?;
 
     // Create the IDF.
     let to_names_processed = prep_names(to_names, &prep_opts);
@@ -104,7 +109,7 @@ pub fn execute_match(
 
     // Run the match
     match_vec_to_vec(
-        MatchModeExactMatch,
+        ExactMatch,
         from_names,
         to_names_processed,
         &idf,
