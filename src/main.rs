@@ -8,7 +8,6 @@
 // extern crate soundex;
 
 mod core;
-mod io;
 mod matching;
 mod preprocess;
 

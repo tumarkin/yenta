@@ -3,6 +3,8 @@ use getset::Getters;
 use serde::{Deserialize, Serialize};
 use std::cmp::min;
 use std::collections::BTreeMap;
+use std::error::Error;
+use std::fs::File;
 
 use super::idf::{HasDocument, IDF};
 
@@ -22,7 +24,23 @@ pub struct Name {
     // group: String,
 }
 
-/// A processed Name with a counter for each token, use the new constructor
+impl Name {
+    pub fn from_csv(file_path: &str) -> Result<Vec<Name>, Box<dyn Error>> {
+        let file = File::open(file_path)?;
+        let mut rdr = csv::Reader::from_reader(file);
+
+        rdr.deserialize()
+            .into_iter()
+            .map(|result| {
+                let record: Name = result?;
+                Ok(record)
+            })
+            .collect()
+    }
+
+
+
+}/// A processed Name with a counter for each token, use the new constructor
 /// with a passed in text processing function.
 #[derive(Debug, Getters)]
 pub struct NameProcessed {

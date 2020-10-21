@@ -1,5 +1,4 @@
 use getset::Getters;
-// use serde::{Deserialize, Serialize};
 use indicatif::ParallelProgressIterator;
 use rayon::prelude::*;
 use std::cmp::Ordering;
@@ -9,9 +8,7 @@ use std::marker::Send;
 use crate::core::idf::IDF;
 use crate::core::min_max_tie_heap::MinMaxTieHeap;
 use crate::core::name::{Name, NameProcessed, NameWeighted};
-use crate::io::read_name_csv;
-use crate::preprocess::prep_name;
-use crate::preprocess::{prep_names, PreprocessingOptions};
+use crate::preprocess::{prep_name, prep_names, PreprocessingOptions};
 
 /******************************************************************************/
 /* Configuration options                                                      */
@@ -77,9 +74,9 @@ pub fn execute_match(
     // Load in both name files. This is done immediately and eagerly to ensure that
     // all names in both files are properly formed.
     let to_names =
-        read_name_csv(&from_names_path).map_err(|e| format!("Unable to parse TO-CSV: {}", e))?;
+        Name::from_csv(&from_names_path).map_err(|e| format!("Unable to parse TO-CSV: {}", e))?;
     let from_names =
-        read_name_csv(&to_names_path).map_err(|e| format!("Unable to parse FROM-CSV: {}", e))?;
+        Name::from_csv(&to_names_path).map_err(|e| format!("Unable to parse FROM-CSV: {}", e))?;
 
     // Create the IDF.
     let to_names_processed = prep_names(to_names, &prep_opts);
