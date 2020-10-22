@@ -175,35 +175,44 @@ impl NameNGrams {
 
     pub fn compute_match_score(&self, to_name: &Self) -> f64 {
         let mut combination_queue: Vec<_> = vec![];
+
         for ((from_token, from_ngram, from_weight), (to_token, to_ngram, to_weight)) in
             iproduct!(&self.token_ngram_weights, &to_name.token_ngram_weights)
         {
+            let len_ngram_self: usize = from_ngram.n_ngrams;
+            let len_ngram_to: usize = to_ngram.n_ngrams;
             let ngrams_in_common: usize = from_ngram
-                .0
+                .ngram_counter
                 .iter()
                 .map(|(ng, count_in_from)| {
-                    let count_in_to = to_ngram.0.get(ng).unwrap_or(&0);
+                    let count_in_to = to_ngram.ngram_counter.get(ng).unwrap_or(&0);
                     min(count_in_from, count_in_to)
                 })
                 .sum();
             combination_queue.push((
-                ngrams_in_common as f64 * from_weight * to_weight,
+                ngrams_in_common as f64 / (len_ngram_self as f64 * len_ngram_to as f64).sqrt()
+                    * from_weight
+                    * to_weight,
                 from_token,
                 to_token,
             ))
         }
 
+        // A list of matches sort from worst to best. The algorithm will
+        // pop off the last value, getting the best possible unused token match.
         let mut sorted_combination_queue = combination_queue;
-        sorted_combination_queue.sort_unstable_by(|(val_a, _, _), (val_b, _, _)| {
-            val_a.partial_cmp(&val_b).unwrap().reverse()
-        });
+        sorted_combination_queue
+            .sort_unstable_by(|(val_a, _, _), (val_b, _, _)| val_a.partial_cmp(&val_b).unwrap());
 
         let mut score_in_common = 0.0;
         let mut from_tokens_used: Counter<String> = Counter::new();
         let mut to_tokens_used: Counter<String> = Counter::new();
 
+        // println!("{:?}", sorted_combination_queue);
+
         while !sorted_combination_queue.is_empty() {
             let (this_score, from_token, to_token) = sorted_combination_queue.pop().unwrap();
+            // println!("{} {} {}", this_score, from_token, to_token);
             score_in_common += this_score;
 
             from_tokens_used[from_token] += 1;
@@ -223,6 +232,8 @@ impl NameNGrams {
                     .collect();
             }
         }
+
+        // println!("{:?}", score_in_common);
         score_in_common / (self.total_weight * to_name.total_weight)
     }
 }
@@ -231,19 +242,26 @@ impl NameNGrams {
 /* NGram related                                                             */
 /*****************************************************************************/
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct NGram(Counter<String>);
+pub struct NGram {
+    ngram_counter: Counter<String>,
+    n_ngrams: usize,
+}
 
 fn n_gram(s: String, window_size: usize) -> NGram {
     if window_size <= 1 {
         panic!("preprocess::PrepString.n_gram requires a window_size of 2 or greater")
     } else {
-        NGram(
-            s.chars()
-                .ngrams(window_size)
-                .pad()
-                .map(|cs| mconcat_chars(cs))
-                .collect(),
-        )
+        let ngram_counter: Counter<String> = s
+            .chars()
+            .ngrams(window_size)
+            .pad()
+            .map(|cs| mconcat_chars(cs))
+            .collect();
+        let n_ngrams = ngram_counter.values().sum();
+        NGram {
+            ngram_counter,
+            n_ngrams,
+        }
     }
 }
 
@@ -254,13 +272,14 @@ fn mconcat_chars(cs: Vec<char>) -> String {
 #[cfg(test)]
 mod test {
     use super::*;
+    use assert_approx_eq::assert_approx_eq;
 
     #[test]
     fn n_grams() {
         let s = "abcd".to_string();
         assert_eq!(
-            NGram(
-                vec!(
+            NGram {
+                ngram_counter: vec!(
                     "\u{2060}a".to_string(),
                     "ab".to_string(),
                     "bc".to_string(),
@@ -268,14 +287,15 @@ mod test {
                     "d\u{2060}".to_string()
                 )
                 .into_iter()
-                .collect()
-            ),
+                .collect(),
+                n_ngrams: 5,
+            },
             n_gram(s, 2)
         );
         let s = "abcd".to_string();
         assert_eq!(
-            NGram(
-                vec!(
+            NGram {
+                ngram_counter: vec!(
                     "\u{2060}\u{2060}a".to_string(),
                     "\u{2060}ab".to_string(),
                     "abc".to_string(),
@@ -284,14 +304,15 @@ mod test {
                     "d\u{2060}\u{2060}".to_string(),
                 )
                 .into_iter()
-                .collect()
-            ),
+                .collect(),
+                n_ngrams: 6,
+            },
             n_gram(s, 3)
         );
         let s = "abcd".to_string();
         assert_eq!(
-            NGram(
-                vec!(
+            NGram {
+                ngram_counter: vec!(
                     "\u{2060}\u{2060}\u{2060}a".to_string(),
                     "\u{2060}\u{2060}ab".to_string(),
                     "\u{2060}abc".to_string(),
@@ -301,53 +322,57 @@ mod test {
                     "d\u{2060}\u{2060}\u{2060}".to_string(),
                 )
                 .into_iter()
-                .collect()
-            ),
+                .collect(),
+                n_ngrams: 7,
+            },
             n_gram(s, 4)
         );
     }
-} // /*****************************************************************************/
-  // /* Tests                                                                     */
-  // /*****************************************************************************/
-  // #[cfg(test)]
-  // mod test {
-  //     use super::*;
 
-//     #[test]
-//     fn name_same_group() {
-//         let n1 = Name {
-//             unprocessed: "John Smith".to_string(),
-//             idx: "id1".to_string(),
-//             group: "Group A".to_string(),
-//         };
+    #[test]
+    fn n_gram_matching() {
+        let john_smith = "john smith";
+        let jon_smyth = "jonnn sssmyth";
 
-//         let n2 = Name {
-//             unprocessed: "Smith Smithington".to_string(),
-//             idx: "id2".to_string(),
-//             group: "Group A".to_string(),
-//         };
-//         let n3 = Name {
-//             unprocessed: "Smith Smithington".to_string(),
-//             idx: "id3".to_string(),
-//             group: "No group".to_string(),
-//         };
-//         assert_eq!(n1.same_group(&n2), true);
-//         assert_eq!(n1.same_group(&n3), false);
-//         assert_eq!(n2.same_group(&n3), false);
+        let name_0 = Name {
+            unprocessed: john_smith.to_string(),
+            idx: "1".to_string(),
+        };
+        let name_1 = Name {
+            unprocessed: jon_smyth.to_string(),
+            idx: "1".to_string(),
+        };
 
-//         // #[test]
-//         // fn test_item_removal() {
-//         //     let mut c = NonZeroTokenCounter::new();
-//         //     c = c.add_item(&"the".to_string());
-//         //     c = c.add_item(&"quick".to_string());
-//         //     c = c.add_item(&"fox".to_string());
-//         //     c = c.add_item(&"fox".to_string());
+        let np_0 = NameProcessed::new(
+            name_0,
+            john_smith
+                .to_string()
+                .split_ascii_whitespace()
+                .map(|s| s.to_string())
+                .collect(),
+        );
+        let np_1 = NameProcessed::new(
+            name_1,
+            jon_smyth
+                .to_string()
+                .split_ascii_whitespace()
+                .map(|s| s.to_string())
+                .collect(),
+        );
 
-//         //     assert_eq!(c.0[&"the".to_string()], 1);
-//         //     assert_eq!(c.0[&"quick".to_string()], 1);
-//         //     assert_eq!(c.0[&"fox".to_string()], 2);
+        let mut nps = vec![np_0, np_1];
+        let idf: IDF = IDF::new(&nps);
 
-//         //     println!("{:?}", c);
-//         // }
-//     }
-// }
+        let ng_0 = NameNGrams::new(nps.pop().unwrap(), &idf, 2);
+        let ng_1 = NameNGrams::new(nps.pop().unwrap(), &idf, 2);
+
+        let ms = ng_0.compute_match_score(&ng_1);
+        let ms_flipped = ng_1.compute_match_score(&ng_0);
+        let ms_self_0 = ng_0.compute_match_score(&ng_0);
+        let ms_self_1 = ng_1.compute_match_score(&ng_1);
+        assert_approx_eq!(ms, (0.562536 as f64));
+        assert_approx_eq!(ms_flipped, (0.562536 as f64));
+        assert_approx_eq!(ms_self_0, 1.0);
+        assert_approx_eq!(ms_self_1, 1.0);
+    }
+}

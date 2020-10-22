@@ -93,29 +93,39 @@ impl MatchMode for NGramMatch {
 pub fn execute_match(
     io_args: &IoArgs,
     prep_opts: &PreprocessingOptions,
-    _match_mode: &MatchModeEnum,
+    match_mode: &MatchModeEnum,
     match_opts: &MatchOptions,
 ) -> Result<(), Box<dyn Error>> {
     // Load in both name files. This is done immediately and eagerly to ensure that
     // all names in both files are properly formed.
     let to_names =
-        Name::from_csv(&io_args.from_file).map_err(|e| format!("Unable to parse TO-CSV: {}", e))?;
-    let from_names =
-        Name::from_csv(&io_args.to_file).map_err(|e| format!("Unable to parse FROM-CSV: {}", e))?;
+        Name::from_csv(&io_args.to_file).map_err(|e| format!("Unable to parse TO-CSV: {}", e))?;
+    let from_names = Name::from_csv(&io_args.from_file)
+        .map_err(|e| format!("Unable to parse FROM-CSV: {}", e))?;
 
     // Create the IDF.
     let to_names_processed = prep_names(to_names, &prep_opts);
     let idf: IDF = IDF::new(&to_names_processed);
 
     // Run the match
-    match_vec_to_vec(
-        ExactMatch,
-        from_names,
-        to_names_processed,
-        &idf,
-        &prep_opts,
-        &match_opts,
-    );
+    match match_mode {
+        MatchModeEnum::ExactMatch => match_vec_to_vec(
+            ExactMatch,
+            from_names,
+            to_names_processed,
+            &idf,
+            &prep_opts,
+            &match_opts,
+        ),
+        MatchModeEnum::NGramMatch(n) => match_vec_to_vec(
+            NGramMatch(*n),
+            from_names,
+            to_names_processed,
+            &idf,
+            &prep_opts,
+            &match_opts,
+        ),
+    };
 
     Ok(())
 }

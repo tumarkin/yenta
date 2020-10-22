@@ -51,14 +51,14 @@ fn get_command_line_arguments(
         .arg(
             Arg::with_name("token-match")
                 .long("token-match")
-                .help("Match on processed tokens")
+                .help("Match on processed tokens"),
         )
         .arg(
             Arg::with_name("ngram-match")
                 .long("ngram-match")
                 .value_name("INT")
                 .takes_value(true)
-                .help("Match on processed n-grams")
+                .help("Match on processed n-grams"),
         )
         .arg(
             Arg::with_name("retain-non-alphabetic")
@@ -136,14 +136,15 @@ fn get_command_line_arguments(
         output_file,
     };
 
-    let trim_length = cli_opts.value_of("token-length").map_or(
-        Ok(None), |_| {
-            let tl = value_t!(cli_opts.value_of("token-length"), usize).map_err(|e| format_clap_error(e, "token-length"))?;
-            Ok(Some(tl))
-            })?;
-        
-
     // Preprocessing options parsing
+    let trim_length_r: Result<Option<usize>, clap::Error> =
+        cli_opts.value_of("token-length").map_or(Ok(None), |_| {
+            let tl = value_t!(cli_opts.value_of("token-length"), usize)
+                .map_err(|e| format_clap_error(e, "token-length"))?;
+            Ok(Some(tl))
+        });
+    let trim_length = trim_length_r?;
+
     let prep_opts = PreprocessingOptions {
         adjust_unicode: !cli_opts.is_present("retain-unicode"),
         adjust_case: true,
@@ -160,10 +161,10 @@ fn get_command_line_arguments(
     // Matchmode option parsing
     let mut match_mode = MatchModeEnum::ExactMatch;
     if let Some(_) = cli_opts.value_of("ngram-match") {
-        let ngram_size = value_t!(cli_opts.value_of("ngram-match"), usize).map_err(|e| format_clap_error(e, "ngram-match"))?;
+        let ngram_size = value_t!(cli_opts.value_of("ngram-match"), usize)
+            .map_err(|e| format_clap_error(e, "ngram-match"))?;
         match_mode = MatchModeEnum::NGramMatch(ngram_size);
     }
-    
 
     // Matching option parsing
     let minimum_score = value_t!(cli_opts.value_of("minimum-match-score"), f64)
