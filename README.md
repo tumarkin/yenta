@@ -1,6 +1,6 @@
 # yenta
 
-A fast, fuzzy matchmaker for textual data.
+A fast, fuzzy matchmaker for textual data. 
 
 # Overview
 
@@ -20,7 +20,15 @@ A fast, fuzzy matchmaker for textual data.
 
 # Quick Start
 
+Save your data files in CSV format. You will match names from one file to potential matches in a second file. Assume that the first file is called `from_names.csv` and the second file is called `to_names.csv`. `yenta` requires that each of your CSV files has a column called *name*, in lower case. This column will be used by the fuzzy matcher. You may also have an optional column called *id*, which, if used, simply serves as a reference identifier to your underlying data set.
+
+On the command line, `cd` into the directory with your files. To create an output file called `matches.csv` use the following command:
+
+`yenta from_names.csv to_names.csv --output-file=matches.csv`
+
 # Recipes
+
+
 
 # Information
 
