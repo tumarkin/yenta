@@ -1,12 +1,3 @@
-// extern crate clap;
-// extern crate counter;
-// extern crate deunicode;
-// extern crate getset;
-// extern crate indicatif;
-// extern crate ngrams;
-// extern crate rayon;
-// extern crate soundex;
-
 mod core;
 mod matching;
 mod preprocess;

@@ -1,15 +1,23 @@
+use csv::WriterBuilder;
 use getset::Getters;
 use indicatif::ParallelProgressIterator;
 use rayon::prelude::*;
+use serde::Serialize;
 use std::cmp::Ordering;
 use std::error::Error;
+use std::fs::OpenOptions;
 use std::marker::Send;
+use std::sync::mpsc;
+use std::thread;
 
 use crate::core::args::IoArgs;
 use crate::core::idf::IDF;
 use crate::core::min_max_tie_heap::MinMaxTieHeap;
 use crate::core::name::{Name, NameNGrams, NameProcessed, NameWeighted};
 use crate::preprocess::{prep_name, prep_names, PreprocessingOptions};
+
+// mod types;
+// pub use types::{MatchOptions, MatchMode, MatchResult, MatchResultSend};
 
 /******************************************************************************/
 /* Configuration options                                                      */
@@ -20,6 +28,60 @@ pub struct MatchOptions {
     pub minimum_score: f64,
     pub num_results: usize,
     pub ties_within: Option<f64>,
+}
+
+
+pub trait MatchMode {
+    type MatchableData;
+
+    fn make_matchable_name(&self, np: NameProcessed, idf: &IDF) -> Self::MatchableData;
+    fn score_match<'a>(
+        &self,
+        _: &'a Self::MatchableData,
+        _: &'a Self::MatchableData,
+    ) -> MatchResult<'a>;
+}
+
+
+/******************************************************************************/
+/* MatchResult data structure                                                 */
+/******************************************************************************/
+
+/// MatchResult is an compatible with MinMaxTieHeap for storing match results.
+#[derive(Debug, Getters)]
+pub struct MatchResult<'a> {
+    #[getset(get = "pub")]
+    from_name: &'a Name,
+    #[getset(get = "pub")]
+    to_name: &'a Name,
+    #[getset(get = "pub")]
+    score: f64,
+}
+
+impl<'a> PartialEq for MatchResult<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.score.eq(&other.score)
+    }
+}
+impl<'a> Eq for MatchResult<'a> {}
+impl<'a> PartialOrd for MatchResult<'a> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.score.partial_cmp(&other.score)
+    }
+}
+impl<'a> Ord for MatchResult<'a> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).unwrap()
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct MatchResultSend {
+    from_name: String,
+    from_id: String,
+    to_name: String,
+    to_id: String,
+    score: f64,
 }
 
 /******************************************************************************/
@@ -35,17 +97,6 @@ pub struct ExactMatch;
 
 #[derive(Debug)]
 pub struct NGramMatch(usize);
-
-pub trait MatchMode {
-    type MatchableData;
-
-    fn make_matchable_name(&self, np: NameProcessed, idf: &IDF) -> Self::MatchableData;
-    fn score_match<'a>(
-        &self,
-        _: &'a Self::MatchableData,
-        _: &'a Self::MatchableData,
-    ) -> MatchResult<'a>;
-}
 
 impl MatchMode for ExactMatch {
     type MatchableData = NameWeighted;
@@ -96,6 +147,11 @@ pub fn execute_match(
     match_mode: &MatchModeEnum,
     match_opts: &MatchOptions,
 ) -> Result<(), Box<dyn Error>> {
+    let (tx, rx): (
+        mpsc::Sender<Vec<MatchResultSend>>,
+        mpsc::Receiver<Vec<MatchResultSend>>,
+    ) = mpsc::channel();
+
     // Load in both name files. This is done immediately and eagerly to ensure that
     // all names in both files are properly formed.
     let to_names =
@@ -107,6 +163,28 @@ pub fn execute_match(
     let to_names_processed = prep_names(to_names, &prep_opts);
     let idf: IDF = IDF::new(&to_names_processed);
 
+    // Open the file for writing, failing if it already exists
+    let output_file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&io_args.output_file)?;
+
+    let mut wtr = WriterBuilder::new()
+        .has_headers(true)
+        .from_writer(output_file);
+
+    thread::spawn(move || loop {
+        match rx.recv() {
+            Ok(match_results) => {
+                let _: Vec<_> = match_results
+                    .iter()
+                    .map(|mrs| wtr.serialize(mrs).unwrap())
+                    .collect();
+            }
+            Err(_) => break,
+        }
+    });
+
     // Run the match
     match match_mode {
         MatchModeEnum::ExactMatch => match_vec_to_vec(
@@ -116,6 +194,7 @@ pub fn execute_match(
             &idf,
             &prep_opts,
             &match_opts,
+            tx,
         ),
         MatchModeEnum::NGramMatch(n) => match_vec_to_vec(
             NGramMatch(*n),
@@ -124,6 +203,7 @@ pub fn execute_match(
             &idf,
             &prep_opts,
             &match_opts,
+            tx,
         ),
     };
 
@@ -137,6 +217,7 @@ pub fn match_vec_to_vec<T>(
     idf: &IDF,
     prep_opts: &PreprocessingOptions,
     match_opts: &MatchOptions,
+    send_channel: mpsc::Sender<Vec<MatchResultSend>>,
 ) -> ()
 where
     T: MatchMode + Sync,
@@ -151,7 +232,7 @@ where
     let _: Vec<_> = from_names
         .into_par_iter()
         .progress()
-        .map(|from_name| {
+        .map_with(send_channel, |s, from_name| {
             let from_name_processed = prep_name(from_name, &prep_opts);
             let from_name_weighted = match_mode.make_matchable_name(from_name_processed, &idf);
 
@@ -162,21 +243,20 @@ where
                 &match_opts,
             );
 
-            for element in best_matches {
-                let output_str = format!(
-                    "{},{},{},{},{}",
-                    element.from_name().unprocessed(),
-                    element.from_name().idx(),
-                    element.to_name().unprocessed(),
-                    element.to_name().idx(),
-                    element.score(),
-                );
+            let match_results_to_send: Vec<_> = best_matches
+                .iter()
+                .map(|bm| MatchResultSend {
+                    from_name: bm.from_name().unprocessed().clone(),
+                    from_id: bm.from_name().idx().clone(),
+                    to_name: bm.to_name().unprocessed().clone(),
+                    to_id: bm.to_name().idx().clone(),
+                    score: *bm.score(),
+                })
+                .collect();
 
-                println!("{}", output_str);
-            }
+            s.send(match_results_to_send).unwrap();
         })
         .collect();
-    ()
 }
 
 fn best_matches_for_single_name<'a, T>(
@@ -220,34 +300,4 @@ fn min_max_tie_heap_identity_element<'a>(
     MinMaxTieHeap::new(match_opts.num_results, are_tied)
 }
 
-/******************************************************************************/
-/* MatchResult data structure                                                 */
-/******************************************************************************/
 
-/// MatchResult is an compatible with MinMaxTieHeap for storing match results.
-#[derive(Debug, Getters)]
-pub struct MatchResult<'a> {
-    #[getset(get = "pub")]
-    from_name: &'a Name,
-    #[getset(get = "pub")]
-    to_name: &'a Name,
-    #[getset(get = "pub")]
-    score: f64,
-}
-
-impl<'a> PartialEq for MatchResult<'a> {
-    fn eq(&self, other: &Self) -> bool {
-        self.score.eq(&other.score)
-    }
-}
-impl<'a> Eq for MatchResult<'a> {}
-impl<'a> PartialOrd for MatchResult<'a> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.score.partial_cmp(&other.score)
-    }
-}
-impl<'a> Ord for MatchResult<'a> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap()
-    }
-}

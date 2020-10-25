@@ -93,14 +93,14 @@ mod test {
 
     #[test]
     fn test_0() {
-        let are_tied: Box<Fn(&i64, &i64) -> bool> = Box::new(|a: &i64, b: &i64| (a - b).abs() <= 1);
+        let are_tied: Box<dyn Fn(&i64, &i64) -> bool> =
+            Box::new(|a: &i64, b: &i64| (a - b).abs() <= 1);
         let mut mmth: MinMaxTieHeap<i64> = MinMaxTieHeap::new(2, are_tied);
 
         for i in vec![1, 2, 2, 2, 3, 3, 3, 4, 5] {
             mmth.push(i);
         }
 
-        let mmh: MinMaxHeap<i64> = MinMaxHeap::new();
         let in_min_max_heap = mmth.min_max_heap.into_vec_desc();
         let in_ties = mmth.ties.into_vec_desc();
 
@@ -112,14 +112,14 @@ mod test {
 
     #[test]
     fn test_1() {
-        let are_tied: Box<Fn(&i64, &i64) -> bool> = Box::new(|a: &i64, b: &i64| (a - b).abs() <= 1);
+        let are_tied: Box<dyn Fn(&i64, &i64) -> bool> =
+            Box::new(|a: &i64, b: &i64| (a - b).abs() <= 1);
         let mut mmth: MinMaxTieHeap<i64> = MinMaxTieHeap::new(2, are_tied);
 
         for i in vec![1, 2, 2, 2, 3, 3, 3, 4, 5, 5, 5] {
             mmth.push(i);
         }
 
-        let mmh: MinMaxHeap<i64> = MinMaxHeap::new();
         let in_min_max_heap = mmth.min_max_heap.into_vec_desc();
         let in_ties = mmth.ties.into_vec_desc();
 
