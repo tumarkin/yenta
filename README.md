@@ -42,13 +42,13 @@ If *yenta* has in any way made your life easier, please send me an email or star
 
 # To Do
 
-- [] Improved parallelism for correctly ordered output
-- [] Benchmark BTreeMap/BTreeSet vs HashMap/HashSet
-- [] Match Modes
-	- [] Exact token
-	- [] Ngram
-	- [] Levenshtein
-- [] Subgroup search
-- [] CLI error reporting
-- [] NameProcessed::new takes token iterator instead of Counter
+- [x] Multiple producer, single-consumer for correctly ordered output
+- [ ] Benchmark BTreeMap/BTreeSet vs HashMap/HashSet
+- [ ] Match Modes
+	- [x] Exact token
+	- [x] Ngram
+	- [ ] Levenshtein
+- [ ] Subgroup search
+- [ ] CLI error reporting
+- [ ] NameProcessed::new takes token iterator instead of Counter
 
