@@ -8,6 +8,7 @@ use std::collections::BTreeMap;
 use std::error::Error;
 use std::fs::File;
 
+use super::error::wrap_error;
 use super::idf::{HasDocument, IDF};
 
 /******************************************************************************/
@@ -28,18 +29,24 @@ pub struct Name {
 
 impl Name {
     pub fn from_csv(file_path: &str) -> Result<Vec<Name>, Box<dyn Error>> {
-        let file = File::open(file_path)?;
+        let file =
+            File::open(file_path).map_err(|e| wrap_error(e, format!("accessing {}", file_path)))?;
         let mut rdr = csv::Reader::from_reader(file);
 
         rdr.deserialize()
             .into_iter()
             .map(|result| {
-                let record: Name = result?;
+                let record: Name = result
+                    .map_err(|e| wrap_error(e, format!("reading data from {}", file_path)))?;
                 Ok(record)
             })
             .collect()
     }
+
 }
+
+
+
 /// A processed Name with a counter for each token, use the new constructor
 /// with a passed in text processing function.
 #[derive(Debug, Getters)]
@@ -51,12 +58,24 @@ pub struct NameProcessed {
 }
 
 impl NameProcessed {
-    pub fn new(name: Name, token_counter: Counter<String>) -> Self {
+    // pub fn new(name: Name, token_counter: Counter<String>) -> Self {
+    //     NameProcessed {
+    //         name,
+    //         token_counter,
+    //     }
+    // }
+
+    pub fn new<I>(name: Name, tokens: I) -> Self
+    where
+        I: IntoIterator<Item = String>,
+    {
+        let token_counter: Counter<String> = tokens.into_iter().collect();
         NameProcessed {
             name,
             token_counter,
         }
     }
+
     //     fn new<F>(name: Name, text_processor: F) -> NameProcessed
     //     where
     //         F: Fn(&str) -> Vec<String>,
@@ -348,16 +367,14 @@ mod test {
             john_smith
                 .to_string()
                 .split_ascii_whitespace()
-                .map(|s| s.to_string())
-                .collect(),
+                .map(|t| t.to_string()),
         );
         let np_1 = NameProcessed::new(
             name_1,
             jon_smyth
                 .to_string()
                 .split_ascii_whitespace()
-                .map(|s| s.to_string())
-                .collect(),
+                .map(|t| t.to_string()),
         );
 
         let mut nps = vec![np_0, np_1];

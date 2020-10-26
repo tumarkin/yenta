@@ -42,13 +42,13 @@ If *yenta* has in any way made your life easier, please send me an email or star
 
 # To Do
 
-- [x] Multiple producer, single-consumer for correctly ordered output
+- [x] Multiple producer, single-consumer output clustering
+- [x] CLI error standardization
 - [ ] Benchmark BTreeMap/BTreeSet vs HashMap/HashSet
 - [ ] Match Modes
 	- [x] Exact token
 	- [x] Ngram
 	- [ ] Levenshtein
 - [ ] Subgroup search
-- [ ] CLI error reporting
-- [ ] NameProcessed::new takes token iterator instead of Counter
+- [x] NameProcessed::new takes token iterator instead of Counter
 

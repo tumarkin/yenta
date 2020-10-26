@@ -10,15 +10,11 @@ use std::marker::Send;
 use std::sync::mpsc;
 use std::thread;
 
-use crate::core::IoArgs;
-use crate::core::MinMaxTieHeap;
-use crate::core::IDF;
-use crate::core::{Name, NameProcessed};
+use crate::core::{wrap_error, IoArgs, MinMaxTieHeap, Name, NameProcessed, IDF};
 use crate::preprocess::{prep_name, prep_names, PreprocessingOptions};
 
-pub use types::{MatchModeEnum, MatchOptions};
 use types::{ExactMatch, MatchMode, MatchResult, MatchResultSend, NGramMatch};
-
+pub use types::{MatchModeEnum, MatchOptions};
 
 /*****************************************************************************/
 /* Matching                                                                  */
@@ -36,10 +32,8 @@ pub fn execute_match(
 
     // Load in both name files. This is done immediately and eagerly to ensure that
     // all names in both files are properly formed.
-    let to_names =
-        Name::from_csv(&io_args.to_file).map_err(|e| format!("Unable to parse TO-CSV: {}", e))?;
-    let from_names = Name::from_csv(&io_args.from_file)
-        .map_err(|e| format!("Unable to parse FROM-CSV: {}", e))?;
+    let to_names = Name::from_csv(&io_args.to_file)?;
+    let from_names = Name::from_csv(&io_args.from_file)?;
 
     // Create the IDF.
     let to_names_processed = prep_names(to_names, &prep_opts);
@@ -49,7 +43,13 @@ pub fn execute_match(
     let output_file = OpenOptions::new()
         .write(true)
         .create_new(true)
-        .open(&io_args.output_file)?;
+        .open(&io_args.output_file)
+        .map_err(|e| {
+            wrap_error(
+                e,
+                format!("when accessing output file {}", io_args.output_file),
+            )
+        })?;
 
     let mut wtr = WriterBuilder::new()
         .has_headers(true)

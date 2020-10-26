@@ -11,11 +11,9 @@ pub fn prep_names(names: Vec<Name>, prep_opts: &PreprocessingOptions) -> Vec<Nam
 }
 
 pub fn prep_name(name: Name, prep_opts: &PreprocessingOptions) -> NameProcessed {
-    let token_counter = prep_words(&name.unprocessed(), &prep_opts)
-        .into_iter()
-        .collect();
+    let tokens = prep_words(&name.unprocessed(), &prep_opts);
 
-    NameProcessed::new(name, token_counter)
+    NameProcessed::new(name, tokens)
 }
 
 pub fn prep_words(source_string: &str, opts: &PreprocessingOptions) -> Vec<String> {
