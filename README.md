@@ -50,5 +50,5 @@ If *yenta* has in any way made your life easier, please send me an email or star
 	- [x] Ngram
 	- [ ] Levenshtein
 - [ ] Subgroup search
-- [x] NameProcessed::new takes token iterator instead of Counter
+- [x] NameProcessed::new using token iterator
 
