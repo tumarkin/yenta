@@ -6,7 +6,7 @@ use clap;
 use clap::{crate_version, value_t, App, Arg, ArgGroup};
 use std::error::Error;
 
-use crate::core::args::IoArgs;
+use crate::core::IoArgs;
 use crate::matching::{execute_match, MatchModeEnum, MatchOptions};
 use crate::preprocess::PreprocessingOptions;
 

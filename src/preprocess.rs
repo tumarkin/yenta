@@ -1,7 +1,7 @@
 use deunicode::deunicode;
 use rayon::prelude::*;
 
-use crate::core::name::{Name, NameProcessed};
+use crate::core::{Name, NameProcessed};
 
 pub fn prep_names(names: Vec<Name>, prep_opts: &PreprocessingOptions) -> Vec<NameProcessed> {
     names

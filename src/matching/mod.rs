@@ -1,142 +1,24 @@
+mod types;
+
 use csv::WriterBuilder;
-use getset::Getters;
 use indicatif::ParallelProgressIterator;
 use rayon::prelude::*;
-use serde::Serialize;
-use std::cmp::Ordering;
+
 use std::error::Error;
 use std::fs::OpenOptions;
 use std::marker::Send;
 use std::sync::mpsc;
 use std::thread;
 
-use crate::core::args::IoArgs;
-use crate::core::idf::IDF;
-use crate::core::min_max_tie_heap::MinMaxTieHeap;
-use crate::core::name::{Name, NameNGrams, NameProcessed, NameWeighted};
+use crate::core::IoArgs;
+use crate::core::MinMaxTieHeap;
+use crate::core::IDF;
+use crate::core::{Name, NameProcessed};
 use crate::preprocess::{prep_name, prep_names, PreprocessingOptions};
 
-// mod types;
-// pub use types::{MatchOptions, MatchMode, MatchResult, MatchResultSend};
+pub use types::{MatchModeEnum, MatchOptions};
+use types::{ExactMatch, MatchMode, MatchResult, MatchResultSend, NGramMatch};
 
-/******************************************************************************/
-/* Configuration options                                                      */
-/******************************************************************************/
-#[derive(Debug)]
-pub struct MatchOptions {
-    // pub match_mode: MatchMode,
-    pub minimum_score: f64,
-    pub num_results: usize,
-    pub ties_within: Option<f64>,
-}
-
-
-pub trait MatchMode {
-    type MatchableData;
-
-    fn make_matchable_name(&self, np: NameProcessed, idf: &IDF) -> Self::MatchableData;
-    fn score_match<'a>(
-        &self,
-        _: &'a Self::MatchableData,
-        _: &'a Self::MatchableData,
-    ) -> MatchResult<'a>;
-}
-
-
-/******************************************************************************/
-/* MatchResult data structure                                                 */
-/******************************************************************************/
-
-/// MatchResult is an compatible with MinMaxTieHeap for storing match results.
-#[derive(Debug, Getters)]
-pub struct MatchResult<'a> {
-    #[getset(get = "pub")]
-    from_name: &'a Name,
-    #[getset(get = "pub")]
-    to_name: &'a Name,
-    #[getset(get = "pub")]
-    score: f64,
-}
-
-impl<'a> PartialEq for MatchResult<'a> {
-    fn eq(&self, other: &Self) -> bool {
-        self.score.eq(&other.score)
-    }
-}
-impl<'a> Eq for MatchResult<'a> {}
-impl<'a> PartialOrd for MatchResult<'a> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.score.partial_cmp(&other.score)
-    }
-}
-impl<'a> Ord for MatchResult<'a> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap()
-    }
-}
-
-#[derive(Debug, Serialize)]
-pub struct MatchResultSend {
-    from_name: String,
-    from_id: String,
-    to_name: String,
-    to_id: String,
-    score: f64,
-}
-
-/******************************************************************************/
-/* Match modes                                                                */
-/******************************************************************************/
-pub enum MatchModeEnum {
-    ExactMatch,
-    NGramMatch(usize),
-}
-
-#[derive(Debug)]
-pub struct ExactMatch;
-
-#[derive(Debug)]
-pub struct NGramMatch(usize);
-
-impl MatchMode for ExactMatch {
-    type MatchableData = NameWeighted;
-
-    fn make_matchable_name(&self, np: NameProcessed, idf: &IDF) -> Self::MatchableData {
-        NameWeighted::new(np, &idf)
-    }
-
-    fn score_match<'a>(
-        &self,
-        from_name_weighted: &'a Self::MatchableData,
-        to_name_weighted: &'a Self::MatchableData,
-    ) -> MatchResult<'a> {
-        MatchResult {
-            from_name: &from_name_weighted.name(),
-            to_name: &to_name_weighted.name(),
-            score: from_name_weighted.compute_match_score(&to_name_weighted),
-        }
-    }
-}
-
-impl MatchMode for NGramMatch {
-    type MatchableData = NameNGrams;
-
-    fn make_matchable_name(&self, np: NameProcessed, idf: &IDF) -> Self::MatchableData {
-        NameNGrams::new(np, &idf, self.0)
-    }
-
-    fn score_match<'a>(
-        &self,
-        from_name_ngram: &'a Self::MatchableData,
-        to_name_ngram: &'a Self::MatchableData,
-    ) -> MatchResult<'a> {
-        MatchResult {
-            from_name: &from_name_ngram.name(),
-            to_name: &to_name_ngram.name(),
-            score: from_name_ngram.compute_match_score(&to_name_ngram),
-        }
-    }
-}
 
 /*****************************************************************************/
 /* Matching                                                                  */
@@ -197,7 +79,7 @@ pub fn execute_match(
             tx,
         ),
         MatchModeEnum::NGramMatch(n) => match_vec_to_vec(
-            NGramMatch(*n),
+            NGramMatch::new(*n),
             from_names,
             to_names_processed,
             &idf,
@@ -299,5 +181,3 @@ fn min_max_tie_heap_identity_element<'a>(
     };
     MinMaxTieHeap::new(match_opts.num_results, are_tied)
 }
-
-
