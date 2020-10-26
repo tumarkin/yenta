@@ -44,11 +44,12 @@ If *yenta* has in any way made your life easier, please send me an email or star
 
 - [x] Multiple producer, single-consumer output clustering
 - [x] CLI error standardization
-- [ ] Benchmark BTreeMap/BTreeSet vs HashMap/HashSet
 - [ ] Match Modes
 	- [x] Exact token
 	- [x] Ngram
 	- [ ] Levenshtein
 - [ ] Subgroup search
+- [ ] Benchmark BTreeMap/BTreeSet vs HashMap/HashSet
+- [ ] Evaluate Tokio/Crossbeam
 - [x] NameProcessed::new using token iterator
 
