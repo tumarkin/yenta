@@ -1,6 +1,6 @@
 [package]
 name = "yenta"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Rob Tumarkin <r.tumarkin@unsw.edu.au>"]
 edition = "2018"
 
@@ -8,8 +8,6 @@ edition = "2018"
 
 [dependencies]
 ansi_term = "0.12.1"
-clap = "2.33.3"
-console = "0.12.0"
 counter = "0.5.2"
 csv = "1.0.0"
 deunicode = "1.1.1"
@@ -21,6 +19,7 @@ ngrams = "1.0.1"
 rayon = "1.4.1"
 serde = {version = "1.0.116", features = ["derive"]}
 soundex = "0.2.0"
+structopt = "0.3.20"
 
 [dev-dependencies]
 assert_approx_eq = "1.1.0"

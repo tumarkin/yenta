@@ -8,17 +8,6 @@ use crate::core::{Name, NameNGrams, NameProcessed, NameWeighted, IDF};
 // use crate::core::name::{Name, NameNGrams, NameProcessed, NameWeighted};
 
 /******************************************************************************/
-/* Configuration options                                                      */
-/******************************************************************************/
-#[derive(Debug)]
-pub struct MatchOptions {
-    // pub match_mode: MatchMode,
-    pub minimum_score: f64,
-    pub num_results: usize,
-    pub ties_within: Option<f64>,
-}
-
-/******************************************************************************/
 /* MatchMode Trait                                                            */
 /******************************************************************************/
 pub trait MatchMode {
@@ -35,10 +24,6 @@ pub trait MatchMode {
 /******************************************************************************/
 /* Match modes                                                                */
 /******************************************************************************/
-pub enum MatchModeEnum {
-    ExactMatch,
-    NGramMatch(usize),
-}
 
 #[derive(Debug)]
 pub struct ExactMatch;
