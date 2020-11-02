@@ -1,14 +1,13 @@
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
-#[structopt(about="A matchmaker for text files")]
-// #[structopt(author="Robert Tumarkin <r.tumarkin@unsw.edu.au>")]
+#[structopt(about = "A matchmaker for text files")]
 pub enum MatchModeEnum {
     #[structopt(name = "token")]
     /// Exact match on processed tokens
-    ExactMatch {
+    TokenMatch {
         #[structopt(flatten)]
-        em_cli: CLI,
+        cli: CLI,
     },
     /// Fuzzy match using n-grams on processed tokens
     #[structopt(name = "ngram")]
@@ -18,15 +17,28 @@ pub enum MatchModeEnum {
         n_gram_length: usize,
 
         #[structopt(flatten)]
-        ng_cli: CLI,
+        cli: CLI,
     },
-}
+    /// Fuzzy match using Levenshtein distance on processed tokens
+    #[structopt(name = "lev")]
+    Levenshtein {
+        #[structopt(flatten)]
+        cli: CLI,
+    },
+    /// Fuzzy match using Damerau-Levenshtein distance on processed tokens
+    #[structopt(name = "dl")]
+    DamerauLevenshtein {
+        #[structopt(flatten)]
+        cli: CLI,
+    },}
 
 impl MatchModeEnum {
     pub fn get_cli(&self) -> &CLI {
         match self {
-            MatchModeEnum::ExactMatch { em_cli } => &em_cli,
-            MatchModeEnum::NGramMatch { ng_cli, .. } => &ng_cli,
+            MatchModeEnum::TokenMatch { cli } => &cli,
+            MatchModeEnum::NGramMatch { cli, .. } => &cli,
+            MatchModeEnum::Levenshtein { cli } => &cli,
+            MatchModeEnum::DamerauLevenshtein { cli } => &cli,
         }
     }
 }
