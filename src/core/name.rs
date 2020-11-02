@@ -42,10 +42,7 @@ impl Name {
             })
             .collect()
     }
-
 }
-
-
 
 /// A processed Name with a counter for each token, use the new constructor
 /// with a passed in text processing function.

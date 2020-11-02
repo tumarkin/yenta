@@ -1,7 +1,7 @@
 use deunicode::deunicode;
 use rayon::prelude::*;
 
-use crate::core::{Name, NameProcessed};
+use crate::core::{Name, NameProcessed, PreprocessingOptions};
 
 pub fn prep_names(names: Vec<Name>, prep_opts: &PreprocessingOptions) -> Vec<NameProcessed> {
     names
@@ -21,23 +21,14 @@ pub fn prep_words(source_string: &str, opts: &PreprocessingOptions) -> Vec<Strin
         .split_ascii_whitespace()
         .map(|word| {
             PrepString(word.to_string())
-                .deunicode(opts.adjust_unicode)
+                .deunicode(!opts.retain_unicode)
                 .to_ascii_lowercase(opts.adjust_case)
-                .filter_alphabetic(opts.alphabetic_only)
+                .filter_alphabetic(!opts.retain_non_alphabetic)
                 .soundex(opts.soundex)
-                .trim_length(opts.trim_length)
+                .trim_length(opts.token_length)
                 .0
         })
         .collect()
-}
-
-#[derive(Debug)]
-pub struct PreprocessingOptions {
-    pub adjust_unicode: bool,
-    pub adjust_case: bool,
-    pub alphabetic_only: bool,
-    pub soundex: bool,
-    pub trim_length: Option<usize>,
 }
 
 /// A newtype that allows for nicer chaning of functions during text preprocessing

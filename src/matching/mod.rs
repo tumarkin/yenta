@@ -10,25 +10,27 @@ use std::marker::Send;
 use std::sync::mpsc;
 use std::thread;
 
-use crate::core::{wrap_error, IoArgs, MinMaxTieHeap, Name, NameProcessed, IDF};
-use crate::preprocess::{prep_name, prep_names, PreprocessingOptions};
+use crate::core::{
+    wrap_error, MatchModeEnum, MatchOptions, MinMaxTieHeap, Name, NameProcessed,
+    PreprocessingOptions, IDF,
+};
+use crate::preprocess::{prep_name, prep_names};
 
 use types::{ExactMatch, MatchMode, MatchResult, MatchResultSend, NGramMatch};
-pub use types::{MatchModeEnum, MatchOptions};
 
 /*****************************************************************************/
 /* Matching                                                                  */
 /*****************************************************************************/
-pub fn execute_match(
-    io_args: &IoArgs,
-    prep_opts: &PreprocessingOptions,
-    match_mode: &MatchModeEnum,
-    match_opts: &MatchOptions,
-) -> Result<(), Box<dyn Error>> {
+pub fn execute_match(mme: &MatchModeEnum) -> Result<(), Box<dyn Error>> {
     let (tx, rx): (
         mpsc::Sender<Vec<MatchResultSend>>,
         mpsc::Receiver<Vec<MatchResultSend>>,
     ) = mpsc::channel();
+
+    // Bring in shared command line options
+    let io_args = &mme.get_cli().io_args;
+    let prep_opts = &mme.get_cli().preprocessing_options;
+    let match_opts = &mme.get_cli().match_options;
 
     // Load in both name files. This is done immediately and eagerly to ensure that
     // all names in both files are properly formed.
@@ -68,8 +70,8 @@ pub fn execute_match(
     });
 
     // Run the match
-    match match_mode {
-        MatchModeEnum::ExactMatch => match_vec_to_vec(
+    match mme {
+        MatchModeEnum::ExactMatch { em_cli: _ } => match_vec_to_vec(
             ExactMatch,
             from_names,
             to_names_processed,
@@ -78,8 +80,11 @@ pub fn execute_match(
             &match_opts,
             tx,
         ),
-        MatchModeEnum::NGramMatch(n) => match_vec_to_vec(
-            NGramMatch::new(*n),
+        MatchModeEnum::NGramMatch {
+            ng_cli: _,
+            n_gram_length,
+        } => match_vec_to_vec(
+            NGramMatch::new(*n_gram_length),
             from_names,
             to_names_processed,
             &idf,
