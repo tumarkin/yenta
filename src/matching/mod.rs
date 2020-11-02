@@ -16,7 +16,8 @@ use crate::core::{
 };
 use crate::preprocess::{prep_name, prep_names};
 
-use types::{ExactMatch, MatchMode, MatchResult, MatchResultSend, NGramMatch};
+use types::{DamerauLevenshteinMatch, LevenshteinMatch, NGramMatch, TokenMatch};
+use types::{MatchMode, MatchResult, MatchResultSend};
 
 /*****************************************************************************/
 /* Matching                                                                  */
@@ -71,8 +72,8 @@ pub fn execute_match(mme: &MatchModeEnum) -> Result<(), Box<dyn Error>> {
 
     // Run the match
     match mme {
-        MatchModeEnum::ExactMatch { em_cli: _ } => match_vec_to_vec(
-            ExactMatch,
+        MatchModeEnum::TokenMatch { .. } => match_vec_to_vec(
+            TokenMatch,
             from_names,
             to_names_processed,
             &idf,
@@ -80,11 +81,26 @@ pub fn execute_match(mme: &MatchModeEnum) -> Result<(), Box<dyn Error>> {
             &match_opts,
             tx,
         ),
-        MatchModeEnum::NGramMatch {
-            ng_cli: _,
-            n_gram_length,
-        } => match_vec_to_vec(
+        MatchModeEnum::NGramMatch { n_gram_length, .. } => match_vec_to_vec(
             NGramMatch::new(*n_gram_length),
+            from_names,
+            to_names_processed,
+            &idf,
+            &prep_opts,
+            &match_opts,
+            tx,
+        ),
+        MatchModeEnum::Levenshtein { .. } => match_vec_to_vec(
+            LevenshteinMatch,
+            from_names,
+            to_names_processed,
+            &idf,
+            &prep_opts,
+            &match_opts,
+            tx,
+        ),
+        MatchModeEnum::DamerauLevenshtein { .. } => match_vec_to_vec(
+            DamerauLevenshteinMatch,
             from_names,
             to_names_processed,
             &idf,

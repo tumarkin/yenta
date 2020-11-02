@@ -7,6 +7,7 @@ use std::cmp::min;
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::fs::File;
+use strsim::{normalized_levenshtein, normalized_damerau_levenshtein};
 
 use super::error::wrap_error;
 use super::idf::{HasDocument, IDF};
@@ -103,7 +104,7 @@ pub struct NameWeighted {
     #[getset(get = "pub")]
     token_count_weights: BTreeMap<String, (usize, f64)>,
     #[getset(get = "pub")]
-    total_weight: f64,
+    norm: f64,
 }
 
 impl NameWeighted {
@@ -118,13 +119,11 @@ impl NameWeighted {
             total_weight += (*count as f64) * weight.powi(2);
         }
 
-        total_weight = total_weight.sqrt();
-
         NameWeighted {
             name: np.name,
             // token_counter: np.token_counter,
             token_count_weights,
-            total_weight,
+            norm: total_weight.sqrt(),
         }
     }
 
@@ -142,7 +141,7 @@ impl NameWeighted {
             })
             .sum();
 
-        score_in_common / (self.total_weight * to_name.total_weight)
+        score_in_common / (self.norm * to_name.norm)
     }
 }
 
@@ -159,7 +158,7 @@ pub struct NameNGrams {
     #[getset(get = "pub")]
     token_ngram_weights: Vec<(String, NGram, f64)>,
     #[getset(get = "pub")]
-    total_weight: f64,
+    norm: f64,
 }
 
 impl NameNGrams {
@@ -179,13 +178,11 @@ impl NameNGrams {
             total_weight += (*count as f64) * weight.powi(2);
         }
 
-        total_weight = total_weight.sqrt();
-
         NameNGrams {
             name: np.name,
             token_counter,
             token_ngram_weights,
-            total_weight,
+            norm: total_weight.sqrt(),
         }
     }
 
@@ -214,43 +211,14 @@ impl NameNGrams {
             ))
         }
 
-        // A list of matches sort from worst to best. The algorithm will
-        // pop off the last value, getting the best possible unused token match.
-        let mut sorted_combination_queue = combination_queue;
-        sorted_combination_queue
-            .sort_unstable_by(|(val_a, _, _), (val_b, _, _)| val_a.partial_cmp(&val_b).unwrap());
+        score_combination_queue(
+            &self.token_counter,
+            self.norm,
+            &to_name.token_counter,
+            to_name.norm,
+            combination_queue,
+        )
 
-        let mut score_in_common = 0.0;
-        let mut from_tokens_used: Counter<String> = Counter::new();
-        let mut to_tokens_used: Counter<String> = Counter::new();
-
-        // println!("{:?}", sorted_combination_queue);
-
-        while !sorted_combination_queue.is_empty() {
-            let (this_score, from_token, to_token) = sorted_combination_queue.pop().unwrap();
-            // println!("{} {} {}", this_score, from_token, to_token);
-            score_in_common += this_score;
-
-            from_tokens_used[from_token] += 1;
-            to_tokens_used[to_token] += 1;
-
-            if from_tokens_used[from_token] == self.token_counter[from_token] {
-                sorted_combination_queue = sorted_combination_queue
-                    .into_iter()
-                    .filter(|(_, ft, _)| ft != &from_token)
-                    .collect();
-            }
-
-            if to_tokens_used[to_token] == self.token_counter[to_token] {
-                sorted_combination_queue = sorted_combination_queue
-                    .into_iter()
-                    .filter(|(_, _, tt)| tt != &to_token)
-                    .collect();
-            }
-        }
-
-        // println!("{:?}", score_in_common);
-        score_in_common / (self.total_weight * to_name.total_weight)
     }
 }
 
@@ -285,6 +253,179 @@ fn mconcat_chars(cs: Vec<char>) -> String {
     cs.iter().collect()
 }
 
+/*****************************************************************************/
+/* Levenshtein name for approximate  matching                                */
+/*****************************************************************************/
+/// A Name using Levenshtein distance suitable for matching
+#[derive(Debug, Getters)]
+pub struct NameLevenshtein {
+    #[getset(get = "pub")]
+    name: Name,
+    #[getset(get = "pub")]
+    token_counter: Counter<String>,
+    #[getset(get = "pub")]
+    token_weights: Vec<(String, f64)>,
+    #[getset(get = "pub")]
+    norm: f64,
+}
+
+impl NameLevenshtein {
+    pub fn new(np: NameProcessed, idf: &IDF) -> Self {
+        let token_counter: Counter<String> = np.token_counter;
+        let mut token_weights = vec![];
+        let mut total_weight: f64 = 0.0;
+
+        for (token, count) in token_counter.iter() {
+            let weight = idf.lookup(token);
+            token_weights.push((token.to_string(), weight));
+
+            total_weight += (*count as f64) * weight.powi(2);
+        }
+
+        NameLevenshtein {
+            name: np.name,
+            token_counter,
+            token_weights,
+            norm: total_weight.sqrt(),
+        }
+    }
+
+    pub fn compute_match_score(&self, to_name: &Self) -> f64 {
+        let mut combination_queue: Vec<_> = vec![];
+
+        for ((from_token, from_weight), (to_token, to_weight)) in
+            iproduct!(&self.token_weights, &to_name.token_weights)
+        {
+            combination_queue.push((
+                normalized_levenshtein(from_token, to_token) * from_weight * to_weight,
+                from_token,
+                to_token,
+            ))
+        }
+
+        score_combination_queue(
+            &self.token_counter,
+            self.norm,
+            &to_name.token_counter,
+            to_name.norm,
+            combination_queue,
+        )
+
+    }
+}
+
+/*****************************************************************************/
+/* Damerau-Levenshtein name for approximate  matching                        */
+/*****************************************************************************/
+#[derive(Debug, Getters)]
+pub struct NameDamerauLevenshtein {
+    #[getset(get = "pub")]
+    name: Name,
+    #[getset(get = "pub")]
+    token_counter: Counter<String>,
+    #[getset(get = "pub")]
+    token_weights: Vec<(String, f64)>,
+    #[getset(get = "pub")]
+    norm: f64,
+}
+
+impl NameDamerauLevenshtein {
+    pub fn new(np: NameProcessed, idf: &IDF) -> Self {
+        let token_counter: Counter<String> = np.token_counter;
+        let mut token_weights = vec![];
+        let mut total_weight: f64 = 0.0;
+
+        for (token, count) in token_counter.iter() {
+            let weight = idf.lookup(token);
+            token_weights.push((token.to_string(), weight));
+
+            total_weight += (*count as f64) * weight.powi(2);
+        }
+
+        NameDamerauLevenshtein {
+            name: np.name,
+            token_counter,
+            token_weights,
+            norm: total_weight.sqrt(),
+        }
+    }
+
+    pub fn compute_match_score(&self, to_name: &Self) -> f64 {
+        let mut combination_queue: Vec<_> = vec![];
+
+        for ((from_token, from_weight), (to_token, to_weight)) in
+            iproduct!(&self.token_weights, &to_name.token_weights)
+        {
+            combination_queue.push((
+                normalized_damerau_levenshtein(from_token, to_token) * from_weight * to_weight,
+                from_token,
+                to_token,
+            ))
+        }
+
+        score_combination_queue(
+            &self.token_counter,
+            self.norm,
+            &to_name.token_counter,
+            to_name.norm,
+            combination_queue,
+        )
+
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Utility functions
+////////////////////////////////////////////////////////////////////////////////
+fn score_combination_queue(
+    from_token_counter: &Counter<String>,
+    from_norm: f64,
+    to_token_counter: &Counter<String>,
+    to_norm: f64,
+    combination_queue: Vec<(f64, &String, &String)>,
+) -> f64 {
+    // A list of matches sort from worst to best. The algorithm will
+    // pop off the last value, getting the best possible unused token match.
+    let mut sorted_combination_queue = combination_queue;
+    sorted_combination_queue
+        .sort_unstable_by(|(val_a, _, _), (val_b, _, _)| val_a.partial_cmp(&val_b).unwrap());
+
+    let mut score_in_common = 0.0;
+    let mut from_tokens_used: Counter<String> = Counter::new();
+    let mut to_tokens_used: Counter<String> = Counter::new();
+
+    // println!("{:?}", sorted_combination_queue);
+
+    while !sorted_combination_queue.is_empty() {
+        let (this_score, from_token, to_token) = sorted_combination_queue.pop().unwrap();
+        // println!("{} {} {}", this_score, from_token, to_token);
+        score_in_common += this_score;
+
+        from_tokens_used[from_token] += 1;
+        to_tokens_used[to_token] += 1;
+
+        if from_tokens_used[from_token] == from_token_counter[from_token] {
+            sorted_combination_queue = sorted_combination_queue
+                .into_iter()
+                .filter(|(_, ft, _)| ft != &from_token)
+                .collect();
+        }
+
+        if to_tokens_used[to_token] == to_token_counter[to_token] {
+            sorted_combination_queue = sorted_combination_queue
+                .into_iter()
+                .filter(|(_, _, tt)| tt != &to_token)
+                .collect();
+        }
+    }
+
+    // // println!("{:?}", score_in_common);
+    score_in_common / (from_norm * to_norm)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Testing
+////////////////////////////////////////////////////////////////////////////////
 #[cfg(test)]
 mod test {
     use super::*;
