@@ -1,6 +1,6 @@
 # yenta
 
-A fast, fuzzy matchmaker for textual data. 
+A fast, fuzzy, flexible command-line matchmaker for textual data 
 
 # Overview
 
