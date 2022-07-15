@@ -1,6 +1,6 @@
 [package]
 name = "yenta"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Rob Tumarkin <r.tumarkin@unsw.edu.au>"]
 edition = "2018"
 

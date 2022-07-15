@@ -76,7 +76,7 @@ pub struct PreprocessingOptions {
     /// Do not convert unicode characters to ASCII equivalents
     pub retain_unicode: bool,
     #[structopt(skip)]
-    pub adjust_case: bool,
+    pub case_sensitive: bool,
     #[structopt(long)]
     /// Retain non-alphabetic characters
     pub retain_non_alphabetic: bool,

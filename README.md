@@ -16,7 +16,7 @@ A fast, fuzzy, flexible command-line matchmaker for textual data
 
 - Install [Rust](https://www.rust-lang.org/tools/install)
 - Clone this repository
-- At the command line, change to the root of the cloned repository and then type: `cargo install --release`
+- At the command line, change to the root of the cloned repository and then type: `cargo install --path=.` This may be `cargo install --release` depending on your version.
 
 # Quick Start
 

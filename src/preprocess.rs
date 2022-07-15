@@ -22,7 +22,7 @@ pub fn prep_words(source_string: &str, opts: &PreprocessingOptions) -> Vec<Strin
         .map(|word| {
             PrepString(word.to_string())
                 .deunicode(!opts.retain_unicode)
-                .to_ascii_lowercase(opts.adjust_case)
+                .to_ascii_lowercase(!opts.case_sensitive)
                 .filter_alphabetic(!opts.retain_non_alphabetic)
                 .soundex(opts.soundex)
                 .trim_length(opts.token_length)
