@@ -3,24 +3,24 @@ use std::cmp::min;
 use std::collections::BTreeMap;
 
 use crate::core::idf::Idf;
-use crate::core::name::base::{Name, NameProcessed};
+use crate::core::name::base::NameProcessed;
 
 /*****************************************************************************/
 /* Weighted name for exact token matching                                    */
 /*****************************************************************************/
 /// A weighted Name suitable for matching
 #[derive(Debug, Getters)]
-pub struct NameWeighted {
+pub struct NameWeighted<N> {
     #[getset(get = "pub")]
-    name: Name,
+    name: N,
     #[getset(get = "pub")]
     token_count_weights: BTreeMap<String, (usize, f64)>,
     #[getset(get = "pub")]
     norm: f64,
 }
 
-impl NameWeighted {
-    pub fn new(np: NameProcessed, idf: &Idf) -> Self {
+impl<N> NameWeighted<N> {
+    pub fn new(np: NameProcessed<N>, idf: &Idf) -> Self {
         let mut token_count_weights: BTreeMap<String, (usize, f64)> = BTreeMap::new();
         let mut total_weight: f64 = 0.0;
 

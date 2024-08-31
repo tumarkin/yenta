@@ -4,7 +4,6 @@ use itertools::iproduct;
 use ngrams::Ngram;
 use std::cmp::min;
 
-use crate::core::name::base::Name;
 use crate::core::name::score::score_combination_queue;
 use crate::core::{Idf, NameProcessed};
 
@@ -13,9 +12,9 @@ use crate::core::{Idf, NameProcessed};
 /*****************************************************************************/
 /// A Name using NGrams suitable for matching
 #[derive(Debug, Getters)]
-pub struct NameNGrams {
+pub struct NameNGrams<N> {
     #[getset(get = "pub")]
-    name: Name,
+    name: N,
     #[getset(get = "pub")]
     token_counter: Counter<String>,
     #[getset(get = "pub")]
@@ -24,8 +23,8 @@ pub struct NameNGrams {
     norm: f64,
 }
 
-impl NameNGrams {
-    pub fn new(np: NameProcessed, idf: &Idf, window_size: usize) -> Self {
+impl<N> NameNGrams<N> {
+    pub fn new(np: NameProcessed<N>, idf: &Idf, window_size: usize) -> Self {
         let token_counter: Counter<String> = np.token_counter;
         let mut token_ngram_weights = vec![];
         let mut total_weight: f64 = 0.0;

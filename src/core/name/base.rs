@@ -7,6 +7,10 @@ use std::fs::File;
 use crate::core::error::wrap_error;
 use crate::core::idf::HasDocument;
 
+pub trait UnprocessedName {
+    fn unprocessed_name(&self) -> &str;
+}
+
 /******************************************************************************/
 /* Basic name types not suitable for matching                                 */
 /******************************************************************************/
@@ -40,18 +44,24 @@ impl Name {
     }
 }
 
+impl UnprocessedName for Name {
+    fn unprocessed_name(&self) -> &str {
+        &self.unprocessed
+    }
+}
+
 /// A processed Name with a counter for each token, use the new constructor
 /// with a passed in text processing function.
 #[derive(Debug, Getters)]
-pub struct NameProcessed {
+pub struct NameProcessed<N> {
     #[getset(get = "pub")]
-    pub name: Name,
+    pub name: N,
     #[getset(get = "pub")]
     pub token_counter: Counter<String>,
 }
 
-impl NameProcessed {
-    pub fn new<I>(name: Name, tokens: I) -> Self
+impl<N> NameProcessed<N> {
+    pub fn new<I>(name: N, tokens: I) -> Self
     where
         I: IntoIterator<Item = String>,
     {
@@ -63,7 +73,7 @@ impl NameProcessed {
     }
 }
 
-impl HasDocument for NameProcessed {
+impl<N> HasDocument for NameProcessed<N> {
     fn get_tokens(&self) -> Vec<&String> {
         // self.token_counter().keys().into_iter().collect()
         self.token_counter().keys().collect()

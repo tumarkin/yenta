@@ -12,15 +12,15 @@ use crate::core::{
 /******************************************************************************/
 /* MatchMode Trait                                                            */
 /******************************************************************************/
-pub trait MatchMode {
+pub trait MatchMode<N> {
     type MatchableData;
 
-    fn make_matchable_name(&self, np: NameProcessed, idf: &Idf) -> Self::MatchableData;
+    fn make_matchable_name(&self, np: NameProcessed<N>, idf: &Idf) -> Self::MatchableData;
     fn score_match<'a>(
         &self,
         _: &'a Self::MatchableData,
         _: &'a Self::MatchableData,
-    ) -> MatchResult<'a>;
+    ) -> MatchResult<'a, N>;
 }
 
 /******************************************************************************/
@@ -29,10 +29,10 @@ pub trait MatchMode {
 #[derive(Debug)]
 pub struct TokenMatch;
 
-impl MatchMode for TokenMatch {
-    type MatchableData = NameWeighted;
+impl<N> MatchMode<N> for TokenMatch {
+    type MatchableData = NameWeighted<N>;
 
-    fn make_matchable_name(&self, np: NameProcessed, idf: &Idf) -> Self::MatchableData {
+    fn make_matchable_name(&self, np: NameProcessed<N>, idf: &Idf) -> Self::MatchableData {
         NameWeighted::new(np, idf)
     }
 
@@ -40,7 +40,7 @@ impl MatchMode for TokenMatch {
         &self,
         from_name_weighted: &'a Self::MatchableData,
         to_name_weighted: &'a Self::MatchableData,
-    ) -> MatchResult<'a> {
+    ) -> MatchResult<'a, N> {
         MatchResult {
             from_name: from_name_weighted.name(),
             to_name: to_name_weighted.name(),
@@ -60,10 +60,10 @@ impl NGramMatch {
         NGramMatch(n)
     }
 }
-impl MatchMode for NGramMatch {
-    type MatchableData = NameNGrams;
+impl<N> MatchMode<N> for NGramMatch {
+    type MatchableData = NameNGrams<N>;
 
-    fn make_matchable_name(&self, np: NameProcessed, idf: &Idf) -> Self::MatchableData {
+    fn make_matchable_name(&self, np: NameProcessed<N>, idf: &Idf) -> Self::MatchableData {
         NameNGrams::new(np, idf, self.0)
     }
 
@@ -71,7 +71,7 @@ impl MatchMode for NGramMatch {
         &self,
         from_name_ngram: &'a Self::MatchableData,
         to_name_ngram: &'a Self::MatchableData,
-    ) -> MatchResult<'a> {
+    ) -> MatchResult<'a, N> {
         MatchResult {
             from_name: from_name_ngram.name(),
             to_name: to_name_ngram.name(),
@@ -86,10 +86,10 @@ impl MatchMode for NGramMatch {
 #[derive(Debug)]
 pub struct LevenshteinMatch;
 
-impl MatchMode for LevenshteinMatch {
-    type MatchableData = NameLevenshtein;
+impl<N> MatchMode<N> for LevenshteinMatch {
+    type MatchableData = NameLevenshtein<N>;
 
-    fn make_matchable_name(&self, np: NameProcessed, idf: &Idf) -> Self::MatchableData {
+    fn make_matchable_name(&self, np: NameProcessed<N>, idf: &Idf) -> Self::MatchableData {
         NameLevenshtein::new(np, idf)
     }
 
@@ -97,7 +97,7 @@ impl MatchMode for LevenshteinMatch {
         &self,
         from_name_ngram: &'a Self::MatchableData,
         to_name_ngram: &'a Self::MatchableData,
-    ) -> MatchResult<'a> {
+    ) -> MatchResult<'a, N> {
         MatchResult {
             from_name: from_name_ngram.name(),
             to_name: to_name_ngram.name(),
@@ -112,10 +112,10 @@ impl MatchMode for LevenshteinMatch {
 #[derive(Debug)]
 pub struct DamerauLevenshteinMatch;
 
-impl MatchMode for DamerauLevenshteinMatch {
-    type MatchableData = NameDamerauLevenshtein;
+impl<N> MatchMode<N> for DamerauLevenshteinMatch {
+    type MatchableData = NameDamerauLevenshtein<N>;
 
-    fn make_matchable_name(&self, np: NameProcessed, idf: &Idf) -> Self::MatchableData {
+    fn make_matchable_name(&self, np: NameProcessed<N>, idf: &Idf) -> Self::MatchableData {
         NameDamerauLevenshtein::new(np, idf)
     }
 
@@ -123,7 +123,7 @@ impl MatchMode for DamerauLevenshteinMatch {
         &self,
         from_name_ngram: &'a Self::MatchableData,
         to_name_ngram: &'a Self::MatchableData,
-    ) -> MatchResult<'a> {
+    ) -> MatchResult<'a, N> {
         MatchResult {
             from_name: from_name_ngram.name(),
             to_name: to_name_ngram.name(),
@@ -136,27 +136,27 @@ impl MatchMode for DamerauLevenshteinMatch {
 
 /// MatchResult is an compatible with MinMaxTieHeap for storing match results.
 #[derive(Debug, Getters)]
-pub struct MatchResult<'a> {
+pub struct MatchResult<'a, N> {
     #[getset(get = "pub")]
-    pub from_name: &'a Name,
+    pub from_name: &'a N,
     #[getset(get = "pub")]
-    pub to_name: &'a Name,
+    pub to_name: &'a N,
     #[getset(get = "pub")]
     pub score: f64,
 }
 
-impl<'a> PartialEq for MatchResult<'a> {
+impl<'a, N> PartialEq for MatchResult<'a, N> {
     fn eq(&self, other: &Self) -> bool {
         self.score.eq(&other.score)
     }
 }
-impl<'a> Eq for MatchResult<'a> {}
-impl<'a> PartialOrd for MatchResult<'a> {
+impl<'a, N> Eq for MatchResult<'a, N> {}
+impl<'a, N> PartialOrd for MatchResult<'a, N> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.score.partial_cmp(&other.score)
     }
 }
-impl<'a> Ord for MatchResult<'a> {
+impl<'a, N> Ord for MatchResult<'a, N> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.partial_cmp(other).unwrap()
     }

@@ -4,7 +4,7 @@ use itertools::iproduct;
 use strsim::{normalized_damerau_levenshtein, normalized_levenshtein};
 
 use crate::core::idf::Idf;
-use crate::core::name::base::{Name, NameProcessed};
+use crate::core::name::base::NameProcessed;
 use crate::core::name::score_combination_queue;
 
 /*****************************************************************************/
@@ -12,9 +12,9 @@ use crate::core::name::score_combination_queue;
 /*****************************************************************************/
 /// A Name using Levenshtein distance suitable for matching
 #[derive(Debug, Getters)]
-pub struct NameLevenshtein {
+pub struct NameLevenshtein<N> {
     #[getset(get = "pub")]
-    name: Name,
+    name: N,
     #[getset(get = "pub")]
     token_counter: Counter<String>,
     #[getset(get = "pub")]
@@ -23,8 +23,8 @@ pub struct NameLevenshtein {
     norm: f64,
 }
 
-impl NameLevenshtein {
-    pub fn new(np: NameProcessed, idf: &Idf) -> Self {
+impl<N> NameLevenshtein<N> {
+    pub fn new(np: NameProcessed<N>, idf: &Idf) -> Self {
         let token_counter: Counter<String> = np.token_counter;
         let mut token_weights = vec![];
         let mut total_weight: f64 = 0.0;
@@ -71,9 +71,9 @@ impl NameLevenshtein {
 /* Damerau-Levenshtein name for approximate  matching                        */
 /*****************************************************************************/
 #[derive(Debug, Getters)]
-pub struct NameDamerauLevenshtein {
+pub struct NameDamerauLevenshtein<N> {
     #[getset(get = "pub")]
-    name: Name,
+    name: N,
     #[getset(get = "pub")]
     token_counter: Counter<String>,
     #[getset(get = "pub")]
@@ -82,8 +82,8 @@ pub struct NameDamerauLevenshtein {
     norm: f64,
 }
 
-impl NameDamerauLevenshtein {
-    pub fn new(np: NameProcessed, idf: &Idf) -> Self {
+impl<N> NameDamerauLevenshtein<N> {
+    pub fn new(np: NameProcessed<N>, idf: &Idf) -> Self {
         let token_counter: Counter<String> = np.token_counter;
         let mut token_weights = vec![];
         let mut total_weight: f64 = 0.0;

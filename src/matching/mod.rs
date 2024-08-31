@@ -12,7 +12,7 @@ use std::thread;
 
 use crate::core::{
     wrap_error, Idf, MatchModeEnum, MatchOptions, MinMaxTieHeap, Name, NameProcessed,
-    PreprocessingOptions,
+    PreprocessingOptions, UnprocessedName,
 };
 use crate::preprocess::{prep_name, prep_names};
 
@@ -110,62 +110,64 @@ pub fn execute_match(mme: &MatchModeEnum) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub fn match_vec_to_vec<T>(
+pub fn match_vec_to_vec<T, N>(
     match_mode: T,
-    from_names: Vec<Name>,
-    to_names_processed: Vec<NameProcessed>,
+    from_names: Vec<N>,
+    to_names_processed: Vec<NameProcessed<N>>,
     idf: &Idf,
     prep_opts: &PreprocessingOptions,
     match_opts: &MatchOptions,
     send_channel: mpsc::Sender<Vec<MatchResultSend>>,
 ) where
-    T: MatchMode + Sync,
+    T: MatchMode<N> + Sync,
     T::MatchableData: Send + Sync,
+    N: UnprocessedName,
 {
-    // Get the match iterator
-    let to_names_weighted: Vec<_> = to_names_processed
-        .into_par_iter()
-        .map(|name_processed| match_mode.make_matchable_name(name_processed, idf))
-        .collect();
+    // // Get the match iterator
+    // let to_names_weighted: Vec<_> = to_names_processed
+    //     .into_par_iter()
+    //     .map(|name_processed| match_mode.make_matchable_name(name_processed, idf))
+    //     .collect();
 
-    let _: Vec<_> = from_names
-        .into_par_iter()
-        .progress()
-        .map_with(send_channel, |s, from_name| {
-            let from_name_processed = prep_name(from_name, prep_opts);
-            let from_name_weighted = match_mode.make_matchable_name(from_name_processed, idf);
+    // let _: Vec<_> = from_names
+    //     .into_par_iter()
+    //     .progress()
+    //     .map_with(send_channel, |s, from_name| {
+    //         let from_name_processed = prep_name(from_name, prep_opts);
+    //         let from_name_weighted = match_mode.make_matchable_name(from_name_processed, idf);
 
-            let best_matches: Vec<_> = best_matches_for_single_name(
-                &match_mode,
-                &from_name_weighted,
-                &to_names_weighted,
-                match_opts,
-            );
+    //         let best_matches: Vec<_> = best_matches_for_single_name(
+    //             &match_mode,
+    //             &from_name_weighted,
+    //             &to_names_weighted,
+    //             match_opts,
+    //         );
 
-            let match_results_to_send: Vec<_> = best_matches
-                .iter()
-                .map(|bm| MatchResultSend {
-                    from_name: bm.from_name().unprocessed().clone(),
-                    from_id: bm.from_name().idx().clone(),
-                    to_name: bm.to_name().unprocessed().clone(),
-                    to_id: bm.to_name().idx().clone(),
-                    score: *bm.score(),
-                })
-                .collect();
+    //         let match_results_to_send: Vec<_> = best_matches
+    //             .iter()
+    //             .map(|bm| MatchResultSend {
+    //                 from_name: bm.from_name().unprocessed().clone(),
+    //                 from_id: bm.from_name().idx().clone(),
+    //                 to_name: bm.to_name().unprocessed().clone(),
+    //                 to_id: bm.to_name().idx().clone(),
+    //                 score: *bm.score(),
+    //             })
+    //             .collect();
 
-            s.send(match_results_to_send).unwrap();
-        })
-        .collect();
+    //         s.send(match_results_to_send).unwrap();
+    //     })
+    //     .collect();
+    todo!()
 }
 
-fn best_matches_for_single_name<'a, T>(
+fn best_matches_for_single_name<'a, T, N>(
     match_mode: &'a T,
     from_name: &'a T::MatchableData,
     to_names: &'a [T::MatchableData],
     match_opts: &MatchOptions,
-) -> Vec<MatchResult<'a>>
+) -> Vec<MatchResult<'a, N>>
 where
-    T: MatchMode,
+    T: MatchMode<N>,
 {
     let best_matches: MinMaxTieHeap<_> = to_names
         .iter()
@@ -189,13 +191,13 @@ where
 
 type AreTiedFn<T> = dyn Fn(&T, &T) -> bool;
 
-fn min_max_tie_heap_identity_element<'a>(
+fn min_max_tie_heap_identity_element<'a, N>(
     match_opts: &MatchOptions,
-) -> MinMaxTieHeap<MatchResult<'a>> {
-    let are_tied: Box<AreTiedFn<MatchResult>> = match match_opts.ties_within {
-        None => Box::new(|_: &MatchResult, _: &MatchResult| false),
+) -> MinMaxTieHeap<MatchResult<'a, N>> {
+    let are_tied: Box<AreTiedFn<MatchResult<N>>> = match match_opts.ties_within {
+        None => Box::new(|_: &MatchResult<N>, _: &MatchResult<N>| false),
         Some(eps) => {
-            Box::new(move |a: &MatchResult, b: &MatchResult| (a.score - b.score).abs() < eps)
+            Box::new(move |a: &MatchResult<N>, b: &MatchResult<N>| (a.score - b.score).abs() < eps)
         }
     };
     MinMaxTieHeap::new(match_opts.num_results, are_tied)
