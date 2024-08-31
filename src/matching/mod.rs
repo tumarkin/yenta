@@ -12,7 +12,7 @@ use std::thread;
 
 use crate::core::{
     wrap_error, MatchModeEnum, MatchOptions, MinMaxTieHeap, Name, NameProcessed,
-    PreprocessingOptions, IDF,
+    PreprocessingOptions, Idf,
 };
 use crate::preprocess::{prep_name, prep_names};
 
@@ -38,9 +38,9 @@ pub fn execute_match(mme: &MatchModeEnum) -> Result<(), Box<dyn Error>> {
     let to_names = Name::from_csv(&io_args.to_file)?;
     let from_names = Name::from_csv(&io_args.from_file)?;
 
-    // Create the IDF.
-    let to_names_processed = prep_names(to_names, &prep_opts);
-    let idf: IDF = IDF::new(&to_names_processed);
+    // Create the Idf.
+    let to_names_processed = prep_names(to_names, prep_opts);
+    let idf: Idf = Idf::new(&to_names_processed);
 
     // Open the file for writing, failing if it already exists
     let output_file = OpenOptions::new()
@@ -77,8 +77,8 @@ pub fn execute_match(mme: &MatchModeEnum) -> Result<(), Box<dyn Error>> {
             from_names,
             to_names_processed,
             &idf,
-            &prep_opts,
-            &match_opts,
+            prep_opts,
+            match_opts,
             tx,
         ),
         MatchModeEnum::NGramMatch { n_gram_length, .. } => match_vec_to_vec(
@@ -86,8 +86,8 @@ pub fn execute_match(mme: &MatchModeEnum) -> Result<(), Box<dyn Error>> {
             from_names,
             to_names_processed,
             &idf,
-            &prep_opts,
-            &match_opts,
+            prep_opts,
+            match_opts,
             tx,
         ),
         MatchModeEnum::Levenshtein { .. } => match_vec_to_vec(
@@ -95,8 +95,8 @@ pub fn execute_match(mme: &MatchModeEnum) -> Result<(), Box<dyn Error>> {
             from_names,
             to_names_processed,
             &idf,
-            &prep_opts,
-            &match_opts,
+            prep_opts,
+            match_opts,
             tx,
         ),
         MatchModeEnum::DamerauLevenshtein { .. } => match_vec_to_vec(
@@ -104,8 +104,8 @@ pub fn execute_match(mme: &MatchModeEnum) -> Result<(), Box<dyn Error>> {
             from_names,
             to_names_processed,
             &idf,
-            &prep_opts,
-            &match_opts,
+            prep_opts,
+            match_opts,
             tx,
         ),
     };
@@ -117,33 +117,32 @@ pub fn match_vec_to_vec<T>(
     match_mode: T,
     from_names: Vec<Name>,
     to_names_processed: Vec<NameProcessed>,
-    idf: &IDF,
+    idf: &Idf,
     prep_opts: &PreprocessingOptions,
     match_opts: &MatchOptions,
     send_channel: mpsc::Sender<Vec<MatchResultSend>>,
-) -> ()
-where
+) where
     T: MatchMode + Sync,
     T::MatchableData: Send + Sync,
 {
     // Get the match iterator
     let to_names_weighted: Vec<_> = to_names_processed
         .into_par_iter()
-        .map(|name_processed| match_mode.make_matchable_name(name_processed, &idf))
+        .map(|name_processed| match_mode.make_matchable_name(name_processed, idf))
         .collect();
 
     let _: Vec<_> = from_names
         .into_par_iter()
         .progress()
         .map_with(send_channel, |s, from_name| {
-            let from_name_processed = prep_name(from_name, &prep_opts);
-            let from_name_weighted = match_mode.make_matchable_name(from_name_processed, &idf);
+            let from_name_processed = prep_name(from_name, prep_opts);
+            let from_name_weighted = match_mode.make_matchable_name(from_name_processed, idf);
 
             let best_matches: Vec<_> = best_matches_for_single_name(
                 &match_mode,
                 &from_name_weighted,
                 &to_names_weighted,
-                &match_opts,
+                match_opts,
             );
 
             let match_results_to_send: Vec<_> = best_matches
@@ -165,7 +164,7 @@ where
 fn best_matches_for_single_name<'a, T>(
     match_mode: &'a T,
     from_name: &'a T::MatchableData,
-    to_names: &'a Vec<T::MatchableData>,
+    to_names: &'a [T::MatchableData],
     match_opts: &MatchOptions,
 ) -> Vec<MatchResult<'a>>
 where
@@ -174,7 +173,7 @@ where
     let best_matches: MinMaxTieHeap<_> = to_names
         .iter()
         .filter_map(|to_name| {
-            let match_result = match_mode.score_match(&from_name, &to_name);
+            let match_result = match_mode.score_match(from_name, to_name);
             if match_result.score > match_opts.minimum_score {
                 Some(match_result)
             } else {
@@ -182,7 +181,7 @@ where
             }
         })
         .fold(
-            min_max_tie_heap_identity_element(&match_opts),
+            min_max_tie_heap_identity_element(match_opts),
             |mut mmth, element| {
                 mmth.push(element);
                 mmth

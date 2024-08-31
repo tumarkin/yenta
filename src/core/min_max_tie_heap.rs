@@ -8,8 +8,10 @@ pub struct MinMaxTieHeap<T> {
     size: usize,
     #[getset(get = "pub")]
     ties: MinMaxHeap<T>,
-    are_tied: Box<dyn Fn(&T, &T) -> bool>,
+    are_tied: Box<EqualityTestFn<T>>,
 }
+
+type EqualityTestFn<T> = dyn Fn(&T, &T) -> bool;
 
 impl<T: Ord> MinMaxTieHeap<T> {
     pub fn new(size: usize, are_tied: Box<dyn Fn(&T, &T) -> bool>) -> MinMaxTieHeap<T> {
@@ -39,7 +41,7 @@ impl<T: Ord> MinMaxTieHeap<T> {
                 self.clean_up_ties();
             }
             // The element belongs in the tie heap
-            else if (self.are_tied)(&min_element, &element) {
+            else if (self.are_tied)(min_element, &element) {
                 self.ties.push(element);
                 self.clean_up_ties();
             }
@@ -75,7 +77,7 @@ impl<T: Ord> MinMaxTieHeap<T> {
 
         while !self.ties.is_empty() {
             let min_element_in_ties = self.ties.peek_min().unwrap();
-            if !are_tied(&min_element_in_mmh, min_element_in_ties) {
+            if !are_tied(min_element_in_mmh, min_element_in_ties) {
                 self.ties.pop_min();
             } else {
                 break;

@@ -8,7 +8,6 @@ use crate::core::MatchModeEnum;
 use crate::matching::execute_match;
 
 fn main() {
-    // let opt = CLI::from_args();
     let opt = MatchModeEnum::from_args();
     let res = execute_match(&opt);
 

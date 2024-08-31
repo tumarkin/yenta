@@ -10,7 +10,7 @@ pub struct YentaWrappedError<T> {
 
 impl<T: Error> Display for YentaWrappedError<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
-        write!(f, "{}: {}\n", Red.paint("error"), self.msg)?;
+        writeln!(f, "{}: {}", Red.paint("error"), self.msg)?;
         std::fmt::Display::fmt(&self.original_error, f)
     }
 }

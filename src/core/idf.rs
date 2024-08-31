@@ -2,19 +2,19 @@ use counter::Counter;
 use std::collections::{HashMap, HashSet};
 
 /// HasDocument trait yields a vector of tokens representing a document for
-/// computing an IDF.
+/// computing an Idf.
 pub trait HasDocument {
     fn get_tokens(&self) -> Vec<&String>;
 }
 
 /// Inverse document frequency values
 #[derive(Debug)]
-pub struct IDF {
+pub struct Idf {
     weight_map: HashMap<String, f64>,
     weight_for_missing: f64,
 }
 
-impl IDF {
+impl Idf {
     pub fn new<T>(docs: &Vec<T>) -> Self
     where
         T: HasDocument,
@@ -38,7 +38,7 @@ impl IDF {
                 )
             })
             .collect();
-        IDF {
+        Idf {
             weight_map: idf,
             weight_for_missing: ln_num_docs,
         }
@@ -55,7 +55,7 @@ impl IDF {
 /*  Document   related   types                                                */
 /******************************************************************************/
 
-/// Document frequency counter which can be converted to an IDF.
+/// Document frequency counter which can be converted to an Idf.
 #[derive(Debug)]
 struct DocumentFrequency {
     num_docs: usize,
@@ -70,7 +70,7 @@ impl DocumentFrequency {
         }
     }
 
-    fn add_document<T>(&mut self, doc: &T) -> ()
+    fn add_document<T>(&mut self, doc: &T)
     where
         T: HasDocument,
     {

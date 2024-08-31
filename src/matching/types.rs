@@ -2,9 +2,11 @@ use getset::Getters;
 use serde::Serialize;
 use std::cmp::Ordering;
 
-use crate::core::{Name, NameLevenshtein, NameNGrams, NameProcessed, NameWeighted, NameDamerauLevenshtein, IDF};
+use crate::core::{
+    Name, NameDamerauLevenshtein, NameLevenshtein, NameNGrams, NameProcessed, NameWeighted, Idf,
+};
 
-// use crate::core::idf::IDF;
+// use crate::core::idf::Idf;
 // use crate::core::name::{Name, NameNGrams, NameProcessed, NameWeighted};
 
 /******************************************************************************/
@@ -13,7 +15,7 @@ use crate::core::{Name, NameLevenshtein, NameNGrams, NameProcessed, NameWeighted
 pub trait MatchMode {
     type MatchableData;
 
-    fn make_matchable_name(&self, np: NameProcessed, idf: &IDF) -> Self::MatchableData;
+    fn make_matchable_name(&self, np: NameProcessed, idf: &Idf) -> Self::MatchableData;
     fn score_match<'a>(
         &self,
         _: &'a Self::MatchableData,
@@ -30,8 +32,8 @@ pub struct TokenMatch;
 impl MatchMode for TokenMatch {
     type MatchableData = NameWeighted;
 
-    fn make_matchable_name(&self, np: NameProcessed, idf: &IDF) -> Self::MatchableData {
-        NameWeighted::new(np, &idf)
+    fn make_matchable_name(&self, np: NameProcessed, idf: &Idf) -> Self::MatchableData {
+        NameWeighted::new(np, idf)
     }
 
     fn score_match<'a>(
@@ -40,9 +42,9 @@ impl MatchMode for TokenMatch {
         to_name_weighted: &'a Self::MatchableData,
     ) -> MatchResult<'a> {
         MatchResult {
-            from_name: &from_name_weighted.name(),
-            to_name: &to_name_weighted.name(),
-            score: from_name_weighted.compute_match_score(&to_name_weighted),
+            from_name: from_name_weighted.name(),
+            to_name: to_name_weighted.name(),
+            score: from_name_weighted.compute_match_score(to_name_weighted),
         }
     }
 }
@@ -61,8 +63,8 @@ impl NGramMatch {
 impl MatchMode for NGramMatch {
     type MatchableData = NameNGrams;
 
-    fn make_matchable_name(&self, np: NameProcessed, idf: &IDF) -> Self::MatchableData {
-        NameNGrams::new(np, &idf, self.0)
+    fn make_matchable_name(&self, np: NameProcessed, idf: &Idf) -> Self::MatchableData {
+        NameNGrams::new(np, idf, self.0)
     }
 
     fn score_match<'a>(
@@ -71,9 +73,9 @@ impl MatchMode for NGramMatch {
         to_name_ngram: &'a Self::MatchableData,
     ) -> MatchResult<'a> {
         MatchResult {
-            from_name: &from_name_ngram.name(),
-            to_name: &to_name_ngram.name(),
-            score: from_name_ngram.compute_match_score(&to_name_ngram),
+            from_name: from_name_ngram.name(),
+            to_name: to_name_ngram.name(),
+            score: from_name_ngram.compute_match_score(to_name_ngram),
         }
     }
 }
@@ -87,8 +89,8 @@ pub struct LevenshteinMatch;
 impl MatchMode for LevenshteinMatch {
     type MatchableData = NameLevenshtein;
 
-    fn make_matchable_name(&self, np: NameProcessed, idf: &IDF) -> Self::MatchableData {
-        NameLevenshtein::new(np, &idf)
+    fn make_matchable_name(&self, np: NameProcessed, idf: &Idf) -> Self::MatchableData {
+        NameLevenshtein::new(np, idf)
     }
 
     fn score_match<'a>(
@@ -97,9 +99,9 @@ impl MatchMode for LevenshteinMatch {
         to_name_ngram: &'a Self::MatchableData,
     ) -> MatchResult<'a> {
         MatchResult {
-            from_name: &from_name_ngram.name(),
-            to_name: &to_name_ngram.name(),
-            score: from_name_ngram.compute_match_score(&to_name_ngram),
+            from_name: from_name_ngram.name(),
+            to_name: to_name_ngram.name(),
+            score: from_name_ngram.compute_match_score(to_name_ngram),
         }
     }
 }
@@ -113,8 +115,8 @@ pub struct DamerauLevenshteinMatch;
 impl MatchMode for DamerauLevenshteinMatch {
     type MatchableData = NameDamerauLevenshtein;
 
-    fn make_matchable_name(&self, np: NameProcessed, idf: &IDF) -> Self::MatchableData {
-        NameDamerauLevenshtein::new(np, &idf)
+    fn make_matchable_name(&self, np: NameProcessed, idf: &Idf) -> Self::MatchableData {
+        NameDamerauLevenshtein::new(np, idf)
     }
 
     fn score_match<'a>(
@@ -123,12 +125,12 @@ impl MatchMode for DamerauLevenshteinMatch {
         to_name_ngram: &'a Self::MatchableData,
     ) -> MatchResult<'a> {
         MatchResult {
-            from_name: &from_name_ngram.name(),
-            to_name: &to_name_ngram.name(),
-            score: from_name_ngram.compute_match_score(&to_name_ngram),
+            from_name: from_name_ngram.name(),
+            to_name: to_name_ngram.name(),
+            score: from_name_ngram.compute_match_score(to_name_ngram),
         }
     }
-}/******************************************************************************/
+} /******************************************************************************/
 /* MatchResult data structure                                                 */
 /******************************************************************************/
 
