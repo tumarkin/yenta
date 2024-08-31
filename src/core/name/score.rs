@@ -22,9 +22,7 @@ pub fn score_combination_queue(
 
     // println!("{:?}", sorted_combination_queue);
 
-    while !sorted_combination_queue.is_empty() {
-        let (this_score, from_token, to_token) = sorted_combination_queue.pop().unwrap();
-        // println!("{} {} {}", this_score, from_token, to_token);
+    while let Some((this_score, from_token, to_token)) = sorted_combination_queue.pop() {
         score_in_common += this_score;
 
         from_tokens_used[from_token] += 1;

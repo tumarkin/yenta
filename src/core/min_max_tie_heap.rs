@@ -14,7 +14,7 @@ pub struct MinMaxTieHeap<T> {
 type EqualityTestFn<T> = dyn Fn(&T, &T) -> bool;
 
 impl<T: Ord> MinMaxTieHeap<T> {
-    pub fn new(size: usize, are_tied: Box<dyn Fn(&T, &T) -> bool>) -> MinMaxTieHeap<T> {
+    pub fn new(size: usize, are_tied: Box<EqualityTestFn<T>>) -> MinMaxTieHeap<T> {
         MinMaxTieHeap {
             min_max_heap: MinMaxHeap::with_capacity(size),
             ties: MinMaxHeap::new(),

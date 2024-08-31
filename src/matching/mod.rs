@@ -11,8 +11,8 @@ use std::sync::mpsc;
 use std::thread;
 
 use crate::core::{
-    wrap_error, MatchModeEnum, MatchOptions, MinMaxTieHeap, Name, NameProcessed,
-    PreprocessingOptions, Idf,
+    wrap_error, Idf, MatchModeEnum, MatchOptions, MinMaxTieHeap, Name, NameProcessed,
+    PreprocessingOptions,
 };
 use crate::preprocess::{prep_name, prep_names};
 
@@ -58,15 +58,12 @@ pub fn execute_match(mme: &MatchModeEnum) -> Result<(), Box<dyn Error>> {
         .has_headers(true)
         .from_writer(output_file);
 
-    thread::spawn(move || loop {
-        match rx.recv() {
-            Ok(match_results) => {
-                let _: Vec<_> = match_results
-                    .iter()
-                    .map(|mrs| wtr.serialize(mrs).unwrap())
-                    .collect();
-            }
-            Err(_) => break,
+    thread::spawn(move || {
+        while let Ok(match_results) = rx.recv() {
+            let _: Vec<_> = match_results
+                .iter()
+                .map(|mrs| wtr.serialize(mrs).unwrap())
+                .collect();
         }
     });
 
@@ -190,10 +187,12 @@ where
     best_matches.into_vec_desc()
 }
 
+type AreTiedFn<T> = dyn Fn(&T, &T) -> bool;
+
 fn min_max_tie_heap_identity_element<'a>(
     match_opts: &MatchOptions,
 ) -> MinMaxTieHeap<MatchResult<'a>> {
-    let are_tied: Box<dyn Fn(&MatchResult, &MatchResult) -> bool> = match match_opts.ties_within {
+    let are_tied: Box<AreTiedFn<MatchResult>> = match match_opts.ties_within {
         None => Box::new(|_: &MatchResult, _: &MatchResult| false),
         Some(eps) => {
             Box::new(move |a: &MatchResult, b: &MatchResult| (a.score - b.score).abs() < eps)

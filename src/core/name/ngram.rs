@@ -6,7 +6,7 @@ use std::cmp::min;
 
 use crate::core::name::base::Name;
 use crate::core::name::score::score_combination_queue;
-use crate::core::{NameProcessed, Idf};
+use crate::core::{Idf, NameProcessed};
 
 /*****************************************************************************/
 /* Ngram name for approximate  matching                                      */

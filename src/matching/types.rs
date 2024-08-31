@@ -3,7 +3,7 @@ use serde::Serialize;
 use std::cmp::Ordering;
 
 use crate::core::{
-    Name, NameDamerauLevenshtein, NameLevenshtein, NameNGrams, NameProcessed, NameWeighted, Idf,
+    Idf, Name, NameDamerauLevenshtein, NameLevenshtein, NameNGrams, NameProcessed, NameWeighted,
 };
 
 // use crate::core::idf::Idf;
