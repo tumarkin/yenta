@@ -1,12 +1,12 @@
 use deunicode::deunicode;
 use rayon::prelude::*;
 
-use crate::core::base::UnprocessedName;
+use crate::core::base::IsName;
 use crate::core::{NameProcessed, PreprocessingOptions};
 
 pub fn prep_names<N>(names: Vec<N>, prep_opts: &PreprocessingOptions) -> Vec<NameProcessed<N>>
 where
-    N: Sized + Send + UnprocessedName,
+    N: Sized + Send + IsName,
 {
     names
         .into_par_iter()
@@ -14,10 +14,7 @@ where
         .collect()
 }
 
-pub fn prep_name<N: UnprocessedName>(
-    name: N,
-    prep_opts: &PreprocessingOptions,
-) -> NameProcessed<N> {
+pub fn prep_name<N: IsName>(name: N, prep_opts: &PreprocessingOptions) -> NameProcessed<N> {
     let tokens = prep_words(name.unprocessed_name(), prep_opts);
 
     NameProcessed::new(name, tokens)

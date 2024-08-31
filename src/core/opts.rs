@@ -53,6 +53,8 @@ pub struct Cli {
     pub preprocessing_options: PreprocessingOptions,
     #[structopt(flatten)]
     pub match_options: MatchOptions,
+    #[structopt(long)]
+    pub group_match: bool,
 }
 
 // #[structopt(subcommand)]

@@ -3,7 +3,6 @@ mod types;
 use csv::WriterBuilder;
 use indicatif::ParallelProgressIterator;
 use rayon::prelude::*;
-
 use std::error::Error;
 use std::fs::OpenOptions;
 use std::marker::Send;
@@ -11,18 +10,18 @@ use std::sync::mpsc;
 use std::thread;
 
 use crate::core::{
-    wrap_error, Idf, MatchModeEnum, MatchOptions, MinMaxTieHeap, Name, NameProcessed,
-    PreprocessingOptions, UnprocessedName,
+    wrap_error, Idf, IsName, MatchModeEnum, MatchOptions, MinMaxTieHeap, NameProcessed,
+    PreprocessingOptions,
 };
 use crate::preprocess::{prep_name, prep_names};
 
 use types::{DamerauLevenshteinMatch, LevenshteinMatch, NGramMatch, TokenMatch};
 use types::{MatchMode, MatchResult, MatchResultSend};
 
-/*****************************************************************************/
-/* Matching                                                                  */
-/*****************************************************************************/
-pub fn execute_match(mme: &MatchModeEnum) -> Result<(), Box<dyn Error>> {
+pub fn execute_match<N>(mme: &MatchModeEnum) -> Result<(), Box<dyn Error>>
+where
+    N: IsName + Send + Sync,
+{
     let (tx, rx): (
         mpsc::Sender<Vec<MatchResultSend>>,
         mpsc::Receiver<Vec<MatchResultSend>>,
@@ -35,38 +34,40 @@ pub fn execute_match(mme: &MatchModeEnum) -> Result<(), Box<dyn Error>> {
 
     // Load in both name files. This is done immediately and eagerly to ensure that
     // all names in both files are properly formed.
-    let to_names = Name::from_csv(&io_args.to_file)?;
-    let from_names = Name::from_csv(&io_args.from_file)?;
+    let to_names = N::from_csv(&io_args.to_file)?;
+    let from_names = N::from_csv(&io_args.from_file)?;
 
     // Create the Idf.
     let to_names_processed = prep_names(to_names, prep_opts);
     let idf: Idf = Idf::new(&to_names_processed);
 
-    // Open the file for writing, failing if it already exists
-    let output_file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&io_args.output_file)
-        .map_err(|e| {
-            wrap_error(
-                e,
-                format!("when accessing output file {}", io_args.output_file),
-            )
-        })?;
+    // Spawn the CSV writer
+    spawn_csv_writer(&io_args.output_file, rx)?;
 
-    let mut wtr = WriterBuilder::new()
-        .has_headers(true)
-        .from_writer(output_file);
+    // Dispatch by match mode
+    dispatch_match(
+        mme,
+        from_names,
+        to_names_processed,
+        &idf,
+        prep_opts,
+        match_opts,
+        tx,
+    )
+}
 
-    thread::spawn(move || {
-        while let Ok(match_results) = rx.recv() {
-            let _: Vec<_> = match_results
-                .iter()
-                .map(|mrs| wtr.serialize(mrs).unwrap())
-                .collect();
-        }
-    });
-
+pub fn dispatch_match<N>(
+    mme: &MatchModeEnum,
+    from_names: Vec<N>,
+    to_names_processed: Vec<NameProcessed<N>>,
+    idf: &Idf,
+    prep_opts: &PreprocessingOptions,
+    match_opts: &MatchOptions,
+    tx: mpsc::Sender<Vec<MatchResultSend>>,
+) -> Result<(), Box<dyn Error>>
+where
+    N: IsName + Send + Sync,
+{
     // Run the match
     match mme {
         MatchModeEnum::TokenMatch { .. } => match_vec_to_vec(
@@ -121,7 +122,7 @@ pub fn match_vec_to_vec<T, N>(
 ) where
     T: MatchMode<N> + Sync,
     T::MatchableData: Send + Sync,
-    N: Sized + Send + UnprocessedName,
+    N: Sized + Send + IsName,
 {
     // Get the match iterator
     let to_names_weighted: Vec<_> = to_names_processed
@@ -188,6 +189,8 @@ where
     best_matches.into_vec_desc()
 }
 
+
+
 type AreTiedFn<T> = dyn Fn(&T, &T) -> bool;
 
 fn min_max_tie_heap_identity_element<'a, N>(
@@ -200,4 +203,30 @@ fn min_max_tie_heap_identity_element<'a, N>(
         }
     };
     MinMaxTieHeap::new(match_opts.num_results, are_tied)
+}
+
+fn spawn_csv_writer(
+    path: &str,
+    rx: mpsc::Receiver<Vec<MatchResultSend>>,
+) -> Result<(), Box<dyn Error>> {
+    let output_file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+        .map_err(|e| wrap_error(e, format!("when accessing output file {}", path)))?;
+
+    let mut wtr = WriterBuilder::new()
+        .has_headers(true)
+        .from_writer(output_file);
+
+    thread::spawn(move || {
+        while let Ok(match_results) = rx.recv() {
+            let _: Vec<_> = match_results
+                .iter()
+                .map(|mrs| wtr.serialize(mrs).unwrap())
+                .collect();
+        }
+    });
+
+    Ok(())
 }

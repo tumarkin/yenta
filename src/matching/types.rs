@@ -6,9 +6,6 @@ use crate::core::{
     Idf, NameDamerauLevenshtein, NameLevenshtein, NameNGrams, NameProcessed, NameWeighted,
 };
 
-// use crate::core::idf::Idf;
-// use crate::core::name::{Name, NameNGrams, NameProcessed, NameWeighted};
-
 /******************************************************************************/
 /* MatchMode Trait                                                            */
 /******************************************************************************/
