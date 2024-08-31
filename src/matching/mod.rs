@@ -121,43 +121,42 @@ pub fn match_vec_to_vec<T, N>(
 ) where
     T: MatchMode<N> + Sync,
     T::MatchableData: Send + Sync,
-    N: UnprocessedName,
+    N: Sized + Send + UnprocessedName,
 {
-    // // Get the match iterator
-    // let to_names_weighted: Vec<_> = to_names_processed
-    //     .into_par_iter()
-    //     .map(|name_processed| match_mode.make_matchable_name(name_processed, idf))
-    //     .collect();
+    // Get the match iterator
+    let to_names_weighted: Vec<_> = to_names_processed
+        .into_par_iter()
+        .map(|name_processed| match_mode.make_matchable_name(name_processed, idf))
+        .collect();
 
-    // let _: Vec<_> = from_names
-    //     .into_par_iter()
-    //     .progress()
-    //     .map_with(send_channel, |s, from_name| {
-    //         let from_name_processed = prep_name(from_name, prep_opts);
-    //         let from_name_weighted = match_mode.make_matchable_name(from_name_processed, idf);
+    let _: Vec<_> = from_names
+        .into_par_iter()
+        .progress()
+        .map_with(send_channel, |s, from_name| {
+            let from_name_processed = prep_name(from_name, prep_opts);
+            let from_name_weighted = match_mode.make_matchable_name(from_name_processed, idf);
 
-    //         let best_matches: Vec<_> = best_matches_for_single_name(
-    //             &match_mode,
-    //             &from_name_weighted,
-    //             &to_names_weighted,
-    //             match_opts,
-    //         );
+            let best_matches: Vec<_> = best_matches_for_single_name(
+                &match_mode,
+                &from_name_weighted,
+                &to_names_weighted,
+                match_opts,
+            );
 
-    //         let match_results_to_send: Vec<_> = best_matches
-    //             .iter()
-    //             .map(|bm| MatchResultSend {
-    //                 from_name: bm.from_name().unprocessed().clone(),
-    //                 from_id: bm.from_name().idx().clone(),
-    //                 to_name: bm.to_name().unprocessed().clone(),
-    //                 to_id: bm.to_name().idx().clone(),
-    //                 score: *bm.score(),
-    //             })
-    //             .collect();
+            let match_results_to_send: Vec<_> = best_matches
+                .iter()
+                .map(|bm| MatchResultSend {
+                    from_name: bm.from_name().unprocessed_name().to_string(),
+                    from_id: bm.from_name().idx().to_string(),
+                    to_name: bm.to_name().unprocessed_name().to_string(),
+                    to_id: bm.to_name().idx().to_string(),
+                    score: *bm.score(),
+                })
+                .collect();
 
-    //         s.send(match_results_to_send).unwrap();
-    //     })
-    //     .collect();
-    todo!()
+            s.send(match_results_to_send).unwrap();
+        })
+        .collect();
 }
 
 fn best_matches_for_single_name<'a, T, N>(

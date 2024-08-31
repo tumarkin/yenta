@@ -9,6 +9,7 @@ use crate::core::idf::HasDocument;
 
 pub trait UnprocessedName {
     fn unprocessed_name(&self) -> &str;
+    fn idx(&self) -> &str;
 }
 
 /******************************************************************************/
@@ -47,6 +48,10 @@ impl Name {
 impl UnprocessedName for Name {
     fn unprocessed_name(&self) -> &str {
         &self.unprocessed
+    }
+
+    fn idx(&self) -> &str {
+        &self.idx
     }
 }
 

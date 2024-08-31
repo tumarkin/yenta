@@ -4,12 +4,14 @@ use rayon::prelude::*;
 use crate::core::base::UnprocessedName;
 use crate::core::{NameProcessed, PreprocessingOptions};
 
-pub fn prep_names<N>(names: Vec<N>, prep_opts: &PreprocessingOptions) -> Vec<NameProcessed<N>> {
-    todo!()
-    // names
-    //     .into_par_iter()
-    //     .map(|n| prep_name(n, prep_opts))
-    //     .collect()
+pub fn prep_names<N>(names: Vec<N>, prep_opts: &PreprocessingOptions) -> Vec<NameProcessed<N>>
+where
+    N: Sized + Send + UnprocessedName,
+{
+    names
+        .into_par_iter()
+        .map(|n| prep_name(n, prep_opts))
+        .collect()
 }
 
 pub fn prep_name<N: UnprocessedName>(
