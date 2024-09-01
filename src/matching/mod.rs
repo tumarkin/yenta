@@ -10,8 +10,8 @@ use std::sync::mpsc;
 use std::thread;
 
 use crate::core::{
-    wrap_error, Idf, IsName, MatchModeEnum, MatchOptions, MinMaxTieHeap, NameProcessed,
-    PreprocessingOptions,
+    wrap_error, Idf, IsName, MatchModeEnum, MatchOptions, MinMaxTieHeap, NameGrouped,
+    NameProcessed, NameUngrouped, PreprocessingOptions,
 };
 use crate::preprocess::{prep_name, prep_names};
 
@@ -37,30 +37,17 @@ where
     let to_names = N::from_csv(&io_args.to_file)?;
     let from_names = N::from_csv(&io_args.from_file)?;
 
-    // Create the Idf.
-    let to_names_processed = prep_names(to_names, prep_opts);
-    let idf: Idf = Idf::new(&to_names_processed);
-
     // Spawn the CSV writer
     spawn_csv_writer(&io_args.output_file, rx)?;
 
     // Dispatch by match mode
-    dispatch_match(
-        mme,
-        from_names,
-        to_names_processed,
-        &idf,
-        prep_opts,
-        match_opts,
-        tx,
-    )
+    dispatch_match(mme, from_names, to_names, prep_opts, match_opts, tx)
 }
 
 pub fn dispatch_match<N>(
     mme: &MatchModeEnum,
     from_names: Vec<N>,
-    to_names_processed: Vec<NameProcessed<N>>,
-    idf: &Idf,
+    to_names: Vec<N>,
     prep_opts: &PreprocessingOptions,
     match_opts: &MatchOptions,
     tx: mpsc::Sender<Vec<MatchResultSend>>,
@@ -70,20 +57,13 @@ where
 {
     // Run the match
     match mme {
-        MatchModeEnum::TokenMatch { .. } => match_vec_to_vec(
-            TokenMatch,
-            from_names,
-            to_names_processed,
-            &idf,
-            prep_opts,
-            match_opts,
-            tx,
-        ),
+        MatchModeEnum::TokenMatch { .. } => {
+            match_vec_to_vec(TokenMatch, from_names, to_names, prep_opts, match_opts, tx)
+        }
         MatchModeEnum::NGramMatch { n_gram_length, .. } => match_vec_to_vec(
             NGramMatch::new(*n_gram_length),
             from_names,
-            to_names_processed,
-            &idf,
+            to_names,
             prep_opts,
             match_opts,
             tx,
@@ -91,8 +71,7 @@ where
         MatchModeEnum::Levenshtein { .. } => match_vec_to_vec(
             LevenshteinMatch,
             from_names,
-            to_names_processed,
-            &idf,
+            to_names,
             prep_opts,
             match_opts,
             tx,
@@ -100,8 +79,7 @@ where
         MatchModeEnum::DamerauLevenshtein { .. } => match_vec_to_vec(
             DamerauLevenshteinMatch,
             from_names,
-            to_names_processed,
-            &idf,
+            to_names,
             prep_opts,
             match_opts,
             tx,
@@ -111,11 +89,81 @@ where
     Ok(())
 }
 
+trait GetPotentialMatches<M>
+where
+    M: MatchMode<Self>,
+    Self: Sized,
+{
+    type PotentialMatchLookup;
+
+    fn to_names_weighted(
+        match_mode: &M,
+        ns: Vec<NameProcessed<Self>>,
+        idf: &Idf,
+    ) -> Self::PotentialMatchLookup;
+
+    fn get_potential_names<'a>(
+        n: &'a Self,
+        pml: &'a Self::PotentialMatchLookup,
+    ) -> &'a Vec<M::MatchableData>;
+}
+
+impl<M> GetPotentialMatches<M> for NameUngrouped
+where
+    M: MatchMode<NameUngrouped> + Sync + Sized,
+    M::MatchableData: Send + Sync,
+{
+    type PotentialMatchLookup = Vec<M::MatchableData>;
+
+    fn to_names_weighted(
+        match_mode: &M,
+        ns: Vec<NameProcessed<Self>>,
+        idf: &Idf,
+    ) -> Self::PotentialMatchLookup {
+        ns.into_par_iter()
+            .map(|name_processed| match_mode.make_matchable_name(name_processed, &idf))
+            .collect()
+    }
+
+    fn get_potential_names<'a>(
+        _: &'a Self,
+        pml: &'a Self::PotentialMatchLookup,
+    ) -> &'a Vec<M::MatchableData> {
+        pml
+    }
+}
+
+impl<M> GetPotentialMatches<M> for NameGrouped
+where
+    M: MatchMode<NameGrouped> + Sync + Sized,
+    M::MatchableData: Send + Sync,
+{
+    type PotentialMatchLookup = (); // Vec<M::MatchableData>;
+
+    fn to_names_weighted(
+        _match_mode: &M,
+        _ns: Vec<NameProcessed<Self>>,
+        _idf: &Idf,
+    ) -> Self::PotentialMatchLookup {
+        todo!()
+        // ns.into_par_iter()
+        //     .map(|name_processed| match_mode.make_matchable_name(name_processed, &idf))
+        //     .collect()
+    }
+
+    fn get_potential_names<'a>(
+        _n: &'a Self,
+        _pml: &'a Self::PotentialMatchLookup,
+    ) -> &'a Vec<M::MatchableData> {
+        todo!()
+        // pml
+    }
+}
+
 pub fn match_vec_to_vec<T, N>(
     match_mode: T,
     from_names: Vec<N>,
-    to_names_processed: Vec<NameProcessed<N>>,
-    idf: &Idf,
+    to_names: Vec<N>,
     prep_opts: &PreprocessingOptions,
     match_opts: &MatchOptions,
     send_channel: mpsc::Sender<Vec<MatchResultSend>>,
@@ -124,10 +172,14 @@ pub fn match_vec_to_vec<T, N>(
     T::MatchableData: Send + Sync,
     N: Sized + Send + IsName,
 {
+    // Create the Idf.
+    let to_names_processed = prep_names(to_names, prep_opts);
+    let idf: Idf = Idf::new(&to_names_processed);
+
     // Get the match iterator
     let to_names_weighted: Vec<_> = to_names_processed
         .into_par_iter()
-        .map(|name_processed| match_mode.make_matchable_name(name_processed, idf))
+        .map(|name_processed| match_mode.make_matchable_name(name_processed, &idf))
         .collect();
 
     let _: Vec<_> = from_names
@@ -135,7 +187,7 @@ pub fn match_vec_to_vec<T, N>(
         .progress()
         .map_with(send_channel, |s, from_name| {
             let from_name_processed = prep_name(from_name, prep_opts);
-            let from_name_weighted = match_mode.make_matchable_name(from_name_processed, idf);
+            let from_name_weighted = match_mode.make_matchable_name(from_name_processed, &idf);
 
             let best_matches: Vec<_> = best_matches_for_single_name(
                 &match_mode,
@@ -188,8 +240,6 @@ where
         );
     best_matches.into_vec_desc()
 }
-
-
 
 type AreTiedFn<T> = dyn Fn(&T, &T) -> bool;
 

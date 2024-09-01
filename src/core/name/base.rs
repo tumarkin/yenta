@@ -8,6 +8,8 @@ use crate::core::error::wrap_error;
 use crate::core::idf::HasDocument;
 
 pub trait IsName {
+    type PotentialMatchesLookup;
+    
     fn unprocessed_name(&self) -> &str;
     fn idx(&self) -> &str;
     fn from_csv(file_path: &str) -> Result<Vec<Self>, Box<dyn Error>>
@@ -24,14 +26,11 @@ pub struct NameUngrouped {
     #[getset(get = "pub")]
     #[serde(rename = "id", default)]
     idx: String,
-    // group: String,
 }
 
-// impl NameUngrouped {
-// }
-// }
-
 impl IsName for NameUngrouped {
+    type PotentialMatchesLookup = ();
+
     fn unprocessed_name(&self) -> &str {
         &self.unprocessed
     }
@@ -70,6 +69,7 @@ pub struct NameGrouped {
 }
 
 impl IsName for NameGrouped {
+    type PotentialMatchesLookup = ();
     fn unprocessed_name(&self) -> &str {
         &self.unprocessed
     }
