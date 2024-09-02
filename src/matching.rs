@@ -1,4 +1,5 @@
-mod types;
+mod mode;
+mod result;
 
 use anyhow::Context;
 use csv::WriterBuilder;
@@ -11,11 +12,12 @@ use std::thread;
 
 use crate::cli::{MatchModeEnum, MatchOptions, PreprocessingOptions};
 use crate::core::{Idf, MinMaxTieHeap};
-use crate::matching::types::GetPotentialMatches;
+use crate::matching::mode::GetPotentialMatches;
+use crate::matching::mode::MatchMode;
+use crate::matching::mode::{DamerauLevenshteinMatch, LevenshteinMatch, NGramMatch, TokenMatch};
+use crate::matching::result::{MatchResult, MatchResultSend};
 use crate::name::{HasName, IsName};
 use crate::preprocess::{prep_name, prep_names};
-use types::{DamerauLevenshteinMatch, LevenshteinMatch, NGramMatch, TokenMatch};
-use types::{MatchMode, MatchResult, MatchResultSend};
 
 // pub fn execute_match<N>(mme: &MatchModeEnum) -> Result<(), Box<dyn Error>>
 pub fn execute_match<N>(mme: &MatchModeEnum) -> anyhow::Result<()>
