@@ -1,5 +1,6 @@
-use counter::Counter;
 use std::collections::{HashMap, HashSet};
+
+use counter::Counter;
 
 /// HasDocument trait yields a vector of tokens representing a document for
 /// computing an Idf.

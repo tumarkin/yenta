@@ -1,8 +1,9 @@
+use std::cmp::min;
+
 use counter::Counter;
 use getset::Getters;
 use itertools::iproduct;
 use ngrams::Ngram;
-use std::cmp::min;
 
 use crate::core::Idf;
 use crate::name::score::score_combination_queue;

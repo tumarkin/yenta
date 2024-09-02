@@ -1,14 +1,15 @@
 mod mode;
 mod result;
 
-use anyhow::Context;
-use csv::WriterBuilder;
-use indicatif::ParallelProgressIterator;
-use rayon::prelude::*;
 use std::fs::OpenOptions;
 use std::marker::Send;
 use std::sync::mpsc;
 use std::thread;
+
+use anyhow::Context;
+use csv::WriterBuilder;
+use indicatif::ParallelProgressIterator;
+use rayon::prelude::*;
 
 use crate::cli::{MatchModeEnum, MatchOptions, PreprocessingOptions};
 use crate::core::{Idf, MinMaxTieHeap};

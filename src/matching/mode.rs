@@ -1,6 +1,7 @@
-use rayon::prelude::*;
 use std::collections::BTreeMap;
 use std::marker::Send;
+
+use rayon::prelude::*;
 
 use crate::core::Idf;
 use crate::matching::MatchResult;

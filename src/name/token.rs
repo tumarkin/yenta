@@ -1,6 +1,7 @@
-use getset::Getters;
 use std::cmp::min;
 use std::collections::BTreeMap;
+
+use getset::Getters;
 
 use crate::core::idf::Idf;
 use crate::name::base::{HasName, NameProcessed};

@@ -1,9 +1,10 @@
+use std::fs::File;
+
 use anyhow;
 use anyhow::Context;
 use counter::Counter;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
-use std::fs::File;
 
 use crate::core::idf::HasDocument;
 

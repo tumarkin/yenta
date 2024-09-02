@@ -1,6 +1,7 @@
+use std::cmp::Ordering;
+
 use getset::Getters;
 use serde::Serialize;
-use std::cmp::Ordering;
 
 /// MatchResult is an compatible with MinMaxTieHeap for storing match results.
 #[derive(Debug, Getters)]
