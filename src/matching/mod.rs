@@ -1,3 +1,4 @@
+mod get_potential_matches;
 mod types;
 
 use csv::WriterBuilder;
@@ -10,17 +11,19 @@ use std::sync::mpsc;
 use std::thread;
 
 use crate::core::{
-    wrap_error, Idf, IsName, MatchModeEnum, MatchOptions, MinMaxTieHeap, NameGrouped,
-    NameProcessed, NameUngrouped, PreprocessingOptions,
+    wrap_error, HasName, Idf, IsName, MatchModeEnum, MatchOptions, MinMaxTieHeap,
+    PreprocessingOptions,
 };
 use crate::preprocess::{prep_name, prep_names};
 
+use crate::matching::get_potential_matches::*;
 use types::{DamerauLevenshteinMatch, LevenshteinMatch, NGramMatch, TokenMatch};
 use types::{MatchMode, MatchResult, MatchResultSend};
 
 pub fn execute_match<N>(mme: &MatchModeEnum) -> Result<(), Box<dyn Error>>
 where
-    N: IsName + Send + Sync,
+    N: IsName + Send + Sync + GetPotentialMatches<TokenMatch>,
+    <N as GetPotentialMatches<TokenMatch>>::PotentialMatchLookup: Sync,
 {
     let (tx, rx): (
         mpsc::Sender<Vec<MatchResultSend>>,
@@ -53,12 +56,13 @@ pub fn dispatch_match<N>(
     tx: mpsc::Sender<Vec<MatchResultSend>>,
 ) -> Result<(), Box<dyn Error>>
 where
-    N: IsName + Send + Sync,
+    N: IsName + Send + Sync + GetPotentialMatches<TokenMatch>,
+    <N as GetPotentialMatches<TokenMatch>>::PotentialMatchLookup: Sync,
 {
     // Run the match
     match mme {
         MatchModeEnum::TokenMatch { .. } => {
-            match_vec_to_vec(TokenMatch, from_names, to_names, prep_opts, match_opts, tx)
+            match_vec_to_generic(TokenMatch, from_names, to_names, prep_opts, match_opts, tx)
         }
         MatchModeEnum::NGramMatch { n_gram_length, .. } => match_vec_to_vec(
             NGramMatch::new(*n_gram_length),
@@ -89,75 +93,132 @@ where
     Ok(())
 }
 
-trait GetPotentialMatches<M>
-where
-    M: MatchMode<Self>,
-    Self: Sized,
-{
-    type PotentialMatchLookup;
+// trait GetPotentialMatches<M>
+// where
+//     M: MatchMode<Self>,
+//     Self: Sized,
+// {
+//     type PotentialMatchLookup;
 
-    fn to_names_weighted(
-        match_mode: &M,
-        ns: Vec<NameProcessed<Self>>,
-        idf: &Idf,
-    ) -> Self::PotentialMatchLookup;
+//     fn to_names_weighted(
+//         match_mode: &M,
+//         ns: Vec<NameProcessed<Self>>,
+//         idf: &Idf,
+//     ) -> Self::PotentialMatchLookup;
 
-    fn get_potential_names<'a>(
-        n: &'a Self,
-        pml: &'a Self::PotentialMatchLookup,
-    ) -> &'a Vec<M::MatchableData>;
-}
+//     fn get_potential_names<'a>(
+//         n: &'a M::MatchableData,
+//         pml: &'a Self::PotentialMatchLookup,
+//     ) -> &'a Vec<M::MatchableData>;
+// }
 
-impl<M> GetPotentialMatches<M> for NameUngrouped
-where
-    M: MatchMode<NameUngrouped> + Sync + Sized,
+// impl<M> GetPotentialMatches<M> for NameUngrouped
+// where
+//     M: MatchMode<NameUngrouped> + Sync + Sized,
+//     M::MatchableData: Send + Sync,
+// {
+//     type PotentialMatchLookup = Vec<M::MatchableData>;
+
+//     fn to_names_weighted(
+//         match_mode: &M,
+//         ns: Vec<NameProcessed<Self>>,
+//         idf: &Idf,
+//     ) -> Self::PotentialMatchLookup {
+//         ns.into_par_iter()
+//             .map(|name_processed| match_mode.make_matchable_name(name_processed, &idf))
+//             .collect()
+//     }
+
+//     fn get_potential_names<'a>(
+//         _: &'a M::MatchableData,
+//         pml: &'a Self::PotentialMatchLookup,
+//     ) -> &'a Vec<M::MatchableData> {
+//         pml
+//     }
+// }
+
+// impl<M> GetPotentialMatches<M> for NameGrouped
+// where
+//     M: MatchMode<NameGrouped> + Sync + Sized,
+//     M::MatchableData: Send + Sync,
+// {
+//     type PotentialMatchLookup = (); // Vec<M::MatchableData>;
+
+//     fn to_names_weighted(
+//         _match_mode: &M,
+//         _ns: Vec<NameProcessed<Self>>,
+//         _idf: &Idf,
+//     ) -> Self::PotentialMatchLookup {
+//         todo!()
+//         // ns.into_par_iter()
+//         //     .map(|name_processed| match_mode.make_matchable_name(name_processed, &idf))
+//         //     .collect()
+//     }
+
+//     fn get_potential_names<'a>(
+//         _n: &'a M::MatchableData,
+//         _pml: &'a Self::PotentialMatchLookup,
+//     ) -> &'a Vec<M::MatchableData> {
+//         todo!()
+//         // pml
+//     }
+// }
+
+fn match_vec_to_generic<M, N>(
+    match_mode: M,
+    from_names: Vec<N>,
+    to_names: Vec<N>,
+    prep_opts: &PreprocessingOptions,
+    match_opts: &MatchOptions,
+    send_channel: mpsc::Sender<Vec<MatchResultSend>>,
+) where
+    M: MatchMode<N> + Sync,
     M::MatchableData: Send + Sync,
+    N: Sized + Send + IsName,
+    N: GetPotentialMatches<M>,
+    <N as GetPotentialMatches<M>>::PotentialMatchLookup: Sync,
 {
-    type PotentialMatchLookup = Vec<M::MatchableData>;
+    // Create the Idf.
+    let to_names_processed = prep_names(to_names, prep_opts);
+    let idf: Idf = Idf::new(&to_names_processed);
 
-    fn to_names_weighted(
-        match_mode: &M,
-        ns: Vec<NameProcessed<Self>>,
-        idf: &Idf,
-    ) -> Self::PotentialMatchLookup {
-        ns.into_par_iter()
-            .map(|name_processed| match_mode.make_matchable_name(name_processed, &idf))
-            .collect()
-    }
+    // Get the match iterator
+    let to_names_weighted = N::to_names_weighted(&match_mode, to_names_processed, &idf);
+    // .into_par_iter()
+    // .map(|name_processed| match_mode.make_matchable_name(name_processed, &idf))
+    // .collect();
 
-    fn get_potential_names<'a>(
-        _: &'a Self,
-        pml: &'a Self::PotentialMatchLookup,
-    ) -> &'a Vec<M::MatchableData> {
-        pml
-    }
-}
+    let _: Vec<_> = from_names
+        .into_par_iter()
+        .progress()
+        .map_with(send_channel, |s, from_name| {
+            let from_name_processed = prep_name(from_name, prep_opts);
+            let from_name_weighted = match_mode.make_matchable_name(from_name_processed, &idf);
+            if let Some(to_potential_names) =
+                N::get_potential_names(from_name_weighted.get_name(), &to_names_weighted)
+            {
+                let best_matches: Vec<_> = best_matches_for_single_name(
+                    &match_mode,
+                    &from_name_weighted,
+                    &to_potential_names,
+                    match_opts,
+                );
 
-impl<M> GetPotentialMatches<M> for NameGrouped
-where
-    M: MatchMode<NameGrouped> + Sync + Sized,
-    M::MatchableData: Send + Sync,
-{
-    type PotentialMatchLookup = (); // Vec<M::MatchableData>;
+                let match_results_to_send: Vec<_> = best_matches
+                    .iter()
+                    .map(|bm| MatchResultSend {
+                        from_name: bm.from_name().unprocessed_name().to_string(),
+                        from_id: bm.from_name().idx().to_string(),
+                        to_name: bm.to_name().unprocessed_name().to_string(),
+                        to_id: bm.to_name().idx().to_string(),
+                        score: *bm.score(),
+                    })
+                    .collect();
 
-    fn to_names_weighted(
-        _match_mode: &M,
-        _ns: Vec<NameProcessed<Self>>,
-        _idf: &Idf,
-    ) -> Self::PotentialMatchLookup {
-        todo!()
-        // ns.into_par_iter()
-        //     .map(|name_processed| match_mode.make_matchable_name(name_processed, &idf))
-        //     .collect()
-    }
-
-    fn get_potential_names<'a>(
-        _n: &'a Self,
-        _pml: &'a Self::PotentialMatchLookup,
-    ) -> &'a Vec<M::MatchableData> {
-        todo!()
-        // pml
-    }
+                s.send(match_results_to_send).unwrap();
+            }
+        })
+        .collect();
 }
 
 pub fn match_vec_to_vec<T, N>(

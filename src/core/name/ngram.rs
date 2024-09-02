@@ -5,7 +5,7 @@ use ngrams::Ngram;
 use std::cmp::min;
 
 use crate::core::name::score::score_combination_queue;
-use crate::core::{Idf, NameProcessed};
+use crate::core::{HasName, Idf, NameProcessed};
 
 /*****************************************************************************/
 /* Ngram name for approximate  matching                                      */
@@ -21,6 +21,12 @@ pub struct NameNGrams<N> {
     token_ngram_weights: Vec<(String, NGram, f64)>,
     #[getset(get = "pub")]
     norm: f64,
+}
+
+impl<N> HasName<N> for NameNGrams<N> {
+    fn get_name(&self) -> &N {
+        &self.name
+    }
 }
 
 impl<N> NameNGrams<N> {

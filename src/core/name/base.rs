@@ -9,12 +9,16 @@ use crate::core::idf::HasDocument;
 
 pub trait IsName {
     type PotentialMatchesLookup;
-    
+
     fn unprocessed_name(&self) -> &str;
     fn idx(&self) -> &str;
     fn from_csv(file_path: &str) -> Result<Vec<Self>, Box<dyn Error>>
     where
         Self: Sized;
+}
+
+pub trait HasName<N> {
+    fn get_name(&self) -> &N;
 }
 
 /// An unprocessed Name capable of serialization from/to a tabular data file.
@@ -65,6 +69,7 @@ pub struct NameGrouped {
     #[getset(get = "pub")]
     #[serde(rename = "id", default)]
     idx: String,
+    #[getset(get = "pub")]
     group: String,
 }
 

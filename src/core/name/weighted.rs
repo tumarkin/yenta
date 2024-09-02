@@ -3,7 +3,7 @@ use std::cmp::min;
 use std::collections::BTreeMap;
 
 use crate::core::idf::Idf;
-use crate::core::name::base::NameProcessed;
+use crate::core::name::base::{HasName, NameProcessed};
 
 /*****************************************************************************/
 /* Weighted name for exact token matching                                    */
@@ -17,6 +17,12 @@ pub struct NameWeighted<N> {
     token_count_weights: BTreeMap<String, (usize, f64)>,
     #[getset(get = "pub")]
     norm: f64,
+}
+
+impl<N> HasName<N> for NameWeighted<N> {
+    fn get_name(&self) -> &N {
+        &self.name
+    }
 }
 
 impl<N> NameWeighted<N> {

@@ -3,14 +3,14 @@ use serde::Serialize;
 use std::cmp::Ordering;
 
 use crate::core::{
-    Idf, NameDamerauLevenshtein, NameLevenshtein, NameNGrams, NameProcessed, NameWeighted,
+    HasName, Idf, NameDamerauLevenshtein, NameLevenshtein, NameNGrams, NameProcessed, NameWeighted,
 };
 
 /******************************************************************************/
 /* MatchMode Trait                                                            */
 /******************************************************************************/
 pub trait MatchMode<N> {
-    type MatchableData;
+    type MatchableData: HasName<N>;
 
     fn make_matchable_name(&self, np: NameProcessed<N>, idf: &Idf) -> Self::MatchableData;
     fn score_match<'a>(
