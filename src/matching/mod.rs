@@ -1,4 +1,4 @@
-mod get_potential_matches;
+// mod get_potential_matches;
 mod types;
 
 use csv::WriterBuilder;
@@ -16,14 +16,23 @@ use crate::core::{
 };
 use crate::preprocess::{prep_name, prep_names};
 
-use crate::matching::get_potential_matches::*;
+use crate::matching::types::GetPotentialMatches;
 use types::{DamerauLevenshteinMatch, LevenshteinMatch, NGramMatch, TokenMatch};
 use types::{MatchMode, MatchResult, MatchResultSend};
 
 pub fn execute_match<N>(mme: &MatchModeEnum) -> Result<(), Box<dyn Error>>
 where
-    N: IsName + Send + Sync + GetPotentialMatches<TokenMatch>,
+    N: IsName
+        + Send
+        + Sync
+        + GetPotentialMatches<TokenMatch>
+        + GetPotentialMatches<NGramMatch>
+        + GetPotentialMatches<LevenshteinMatch>
+        + GetPotentialMatches<DamerauLevenshteinMatch>,
     <N as GetPotentialMatches<TokenMatch>>::PotentialMatchLookup: Sync,
+    <N as GetPotentialMatches<NGramMatch>>::PotentialMatchLookup: Sync,
+    <N as GetPotentialMatches<LevenshteinMatch>>::PotentialMatchLookup: Sync,
+    <N as GetPotentialMatches<DamerauLevenshteinMatch>>::PotentialMatchLookup: Sync,
 {
     let (tx, rx): (
         mpsc::Sender<Vec<MatchResultSend>>,
@@ -56,15 +65,24 @@ pub fn dispatch_match<N>(
     tx: mpsc::Sender<Vec<MatchResultSend>>,
 ) -> Result<(), Box<dyn Error>>
 where
-    N: IsName + Send + Sync + GetPotentialMatches<TokenMatch>,
+    N: IsName
+        + Send
+        + Sync
+        + GetPotentialMatches<TokenMatch>
+        + GetPotentialMatches<NGramMatch>
+        + GetPotentialMatches<LevenshteinMatch>
+        + GetPotentialMatches<DamerauLevenshteinMatch>,
     <N as GetPotentialMatches<TokenMatch>>::PotentialMatchLookup: Sync,
+    <N as GetPotentialMatches<NGramMatch>>::PotentialMatchLookup: Sync,
+    <N as GetPotentialMatches<LevenshteinMatch>>::PotentialMatchLookup: Sync,
+    <N as GetPotentialMatches<DamerauLevenshteinMatch>>::PotentialMatchLookup: Sync,
 {
     // Run the match
     match mme {
         MatchModeEnum::TokenMatch { .. } => {
             match_vec_to_generic(TokenMatch, from_names, to_names, prep_opts, match_opts, tx)
         }
-        MatchModeEnum::NGramMatch { n_gram_length, .. } => match_vec_to_vec(
+        MatchModeEnum::NGramMatch { n_gram_length, .. } => match_vec_to_generic(
             NGramMatch::new(*n_gram_length),
             from_names,
             to_names,
@@ -72,7 +90,7 @@ where
             match_opts,
             tx,
         ),
-        MatchModeEnum::Levenshtein { .. } => match_vec_to_vec(
+        MatchModeEnum::Levenshtein { .. } => match_vec_to_generic(
             LevenshteinMatch,
             from_names,
             to_names,
@@ -80,7 +98,7 @@ where
             match_opts,
             tx,
         ),
-        MatchModeEnum::DamerauLevenshtein { .. } => match_vec_to_vec(
+        MatchModeEnum::DamerauLevenshtein { .. } => match_vec_to_generic(
             DamerauLevenshteinMatch,
             from_names,
             to_names,
@@ -221,57 +239,57 @@ fn match_vec_to_generic<M, N>(
         .collect();
 }
 
-pub fn match_vec_to_vec<T, N>(
-    match_mode: T,
-    from_names: Vec<N>,
-    to_names: Vec<N>,
-    prep_opts: &PreprocessingOptions,
-    match_opts: &MatchOptions,
-    send_channel: mpsc::Sender<Vec<MatchResultSend>>,
-) where
-    T: MatchMode<N> + Sync,
-    T::MatchableData: Send + Sync,
-    N: Sized + Send + IsName,
-{
-    // Create the Idf.
-    let to_names_processed = prep_names(to_names, prep_opts);
-    let idf: Idf = Idf::new(&to_names_processed);
+// pub fn match_vec_to_vec<T, N>(
+//     match_mode: T,
+//     from_names: Vec<N>,
+//     to_names: Vec<N>,
+//     prep_opts: &PreprocessingOptions,
+//     match_opts: &MatchOptions,
+//     send_channel: mpsc::Sender<Vec<MatchResultSend>>,
+// ) where
+//     T: MatchMode<N> + Sync,
+//     T::MatchableData: Send + Sync,
+//     N: Sized + Send + IsName,
+// {
+//     // Create the Idf.
+//     let to_names_processed = prep_names(to_names, prep_opts);
+//     let idf: Idf = Idf::new(&to_names_processed);
 
-    // Get the match iterator
-    let to_names_weighted: Vec<_> = to_names_processed
-        .into_par_iter()
-        .map(|name_processed| match_mode.make_matchable_name(name_processed, &idf))
-        .collect();
+//     // Get the match iterator
+//     let to_names_weighted: Vec<_> = to_names_processed
+//         .into_par_iter()
+//         .map(|name_processed| match_mode.make_matchable_name(name_processed, &idf))
+//         .collect();
 
-    let _: Vec<_> = from_names
-        .into_par_iter()
-        .progress()
-        .map_with(send_channel, |s, from_name| {
-            let from_name_processed = prep_name(from_name, prep_opts);
-            let from_name_weighted = match_mode.make_matchable_name(from_name_processed, &idf);
+//     let _: Vec<_> = from_names
+//         .into_par_iter()
+//         .progress()
+//         .map_with(send_channel, |s, from_name| {
+//             let from_name_processed = prep_name(from_name, prep_opts);
+//             let from_name_weighted = match_mode.make_matchable_name(from_name_processed, &idf);
 
-            let best_matches: Vec<_> = best_matches_for_single_name(
-                &match_mode,
-                &from_name_weighted,
-                &to_names_weighted,
-                match_opts,
-            );
+//             let best_matches: Vec<_> = best_matches_for_single_name(
+//                 &match_mode,
+//                 &from_name_weighted,
+//                 &to_names_weighted,
+//                 match_opts,
+//             );
 
-            let match_results_to_send: Vec<_> = best_matches
-                .iter()
-                .map(|bm| MatchResultSend {
-                    from_name: bm.from_name().unprocessed_name().to_string(),
-                    from_id: bm.from_name().idx().to_string(),
-                    to_name: bm.to_name().unprocessed_name().to_string(),
-                    to_id: bm.to_name().idx().to_string(),
-                    score: *bm.score(),
-                })
-                .collect();
+//             let match_results_to_send: Vec<_> = best_matches
+//                 .iter()
+//                 .map(|bm| MatchResultSend {
+//                     from_name: bm.from_name().unprocessed_name().to_string(),
+//                     from_id: bm.from_name().idx().to_string(),
+//                     to_name: bm.to_name().unprocessed_name().to_string(),
+//                     to_id: bm.to_name().idx().to_string(),
+//                     score: *bm.score(),
+//                 })
+//                 .collect();
 
-            s.send(match_results_to_send).unwrap();
-        })
-        .collect();
-}
+//             s.send(match_results_to_send).unwrap();
+//         })
+//         .collect();
+// }
 
 fn best_matches_for_single_name<'a, T, N>(
     match_mode: &'a T,
