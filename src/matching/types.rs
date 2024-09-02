@@ -5,10 +5,11 @@ use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::marker::Send;
 
-use crate::core::{
-    HasName, Idf, NameDamerauLevenshtein, NameLevenshtein, NameNGrams, NameProcessed, NameWeighted,
+use crate::core::Idf;
+use crate::name::{HasName, NameGrouped, NameUngrouped};
+use crate::name::{
+    NameDamerauLevenshtein, NameLevenshtein, NameNGrams, NameProcessed, NameWeighted,
 };
-use crate::core::{NameGrouped, NameUngrouped};
 
 /******************************************************************************/
 /* MatchMode Trait                                                            */
@@ -204,7 +205,7 @@ where
         idf: &Idf,
     ) -> Self::PotentialMatchLookup {
         ns.into_par_iter()
-            .map(|name_processed| match_mode.make_matchable_name(name_processed, &idf))
+            .map(|name_processed| match_mode.make_matchable_name(name_processed, idf))
             .collect()
     }
 
@@ -221,7 +222,7 @@ where
     M: MatchMode<NameGrouped> + Sync + Sized,
     M::MatchableData: Send + Sync,
 {
-    type PotentialMatchLookup = BTreeMap<String, Vec<M::MatchableData>>; // Vec<M::MatchableData>;
+    type PotentialMatchLookup = BTreeMap<String, Vec<M::MatchableData>>;
 
     fn to_names_weighted(
         match_mode: &M,
@@ -231,13 +232,11 @@ where
         let mut pml: Self::PotentialMatchLookup = BTreeMap::new();
 
         for name_processed in ns {
-            let matchable_name = match_mode.make_matchable_name(name_processed, &idf);
+            let matchable_name = match_mode.make_matchable_name(name_processed, idf);
             let g = matchable_name.get_name().group();
             let v = pml.entry(g.clone()).or_default();
             v.push(matchable_name)
         }
-
-        println!("{:?}", pml.keys());
 
         pml
         // ns.into_par_iter()
@@ -250,6 +249,5 @@ where
         pml: &'a Self::PotentialMatchLookup,
     ) -> Option<&'a Vec<M::MatchableData>> {
         pml.get(n.group())
-        // pml
     }
 }

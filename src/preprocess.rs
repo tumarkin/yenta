@@ -1,8 +1,9 @@
 use deunicode::deunicode;
 use rayon::prelude::*;
 
-use crate::core::base::IsName;
-use crate::core::{NameProcessed, PreprocessingOptions};
+use crate::cli::PreprocessingOptions;
+use crate::name::base::IsName;
+use crate::name::NameProcessed;
 
 pub fn prep_names<N>(names: Vec<N>, prep_opts: &PreprocessingOptions) -> Vec<NameProcessed<N>>
 where

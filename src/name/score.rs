@@ -20,8 +20,6 @@ pub fn score_combination_queue(
     let mut from_tokens_used: Counter<String> = Counter::new();
     let mut to_tokens_used: Counter<String> = Counter::new();
 
-    // println!("{:?}", sorted_combination_queue);
-
     while let Some((this_score, from_token, to_token)) = sorted_combination_queue.pop() {
         score_in_common += this_score;
 
@@ -29,20 +27,13 @@ pub fn score_combination_queue(
         to_tokens_used[to_token] += 1;
 
         if from_tokens_used[from_token] == from_token_counter[from_token] {
-            sorted_combination_queue = sorted_combination_queue
-                .into_iter()
-                .filter(|(_, ft, _)| ft != &from_token)
-                .collect();
+            sorted_combination_queue.retain(|(_, ft, _)| ft != &from_token);
         }
 
         if to_tokens_used[to_token] == to_token_counter[to_token] {
-            sorted_combination_queue = sorted_combination_queue
-                .into_iter()
-                .filter(|(_, _, tt)| tt != &to_token)
-                .collect();
+            sorted_combination_queue.retain(|(_, _, tt)| tt != &to_token);
         }
     }
 
-    // // println!("{:?}", score_in_common);
     score_in_common / (from_norm * to_norm)
 }

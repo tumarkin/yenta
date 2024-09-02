@@ -4,8 +4,9 @@ use itertools::iproduct;
 use ngrams::Ngram;
 use std::cmp::min;
 
-use crate::core::name::score::score_combination_queue;
-use crate::core::{HasName, Idf, NameProcessed};
+use crate::core::Idf;
+use crate::name::score::score_combination_queue;
+use crate::name::{HasName, NameProcessed};
 
 /*****************************************************************************/
 /* Ngram name for approximate  matching                                      */

@@ -54,23 +54,6 @@ impl<T: Ord> MinMaxTieHeap<T> {
         v
     }
 
-    // pub fn merge(self, other: Self) -> Self {
-    //     let mut mmth = MinMaxTieHeap::new(self.size, self.are_tied);
-    //     for element in self.min_max_heap {
-    //         mmth.push(element)
-    //     }
-    //     for element in self.ties {
-    //         mmth.push(element)
-    //     }
-    //     for element in other.min_max_heap {
-    //         mmth.push(element)
-    //     }
-    //     for element in other.ties {
-    //         mmth.push(element)
-    //     }
-    //     mmth
-    // }
-
     fn clean_up_ties(&mut self) {
         let min_element_in_mmh = &self.min_max_heap.peek_min().unwrap();
         let are_tied = &self.are_tied;

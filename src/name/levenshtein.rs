@@ -4,8 +4,8 @@ use itertools::iproduct;
 use strsim::{normalized_damerau_levenshtein, normalized_levenshtein};
 
 use crate::core::idf::Idf;
-use crate::core::name::base::{HasName, NameProcessed};
-use crate::core::name::score_combination_queue;
+use crate::name::base::{HasName, NameProcessed};
+use crate::name::score_combination_queue;
 
 /*****************************************************************************/
 /* Levenshtein name for approximate  matching                                */

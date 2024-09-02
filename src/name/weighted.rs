@@ -3,7 +3,7 @@ use std::cmp::min;
 use std::collections::BTreeMap;
 
 use crate::core::idf::Idf;
-use crate::core::name::base::{HasName, NameProcessed};
+use crate::name::base::{HasName, NameProcessed};
 
 /*****************************************************************************/
 /* Weighted name for exact token matching                                    */
@@ -39,7 +39,6 @@ impl<N> NameWeighted<N> {
 
         NameWeighted {
             name: np.name,
-            // token_counter: np.token_counter,
             token_count_weights,
             norm: total_weight.sqrt(),
         }

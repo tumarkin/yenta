@@ -1,26 +1,24 @@
-// mod get_potential_matches;
 mod types;
 
+use anyhow::Context;
 use csv::WriterBuilder;
 use indicatif::ParallelProgressIterator;
 use rayon::prelude::*;
-use std::error::Error;
 use std::fs::OpenOptions;
 use std::marker::Send;
 use std::sync::mpsc;
 use std::thread;
 
-use crate::core::{
-    wrap_error, HasName, Idf, IsName, MatchModeEnum, MatchOptions, MinMaxTieHeap,
-    PreprocessingOptions,
-};
-use crate::preprocess::{prep_name, prep_names};
-
+use crate::cli::{MatchModeEnum, MatchOptions, PreprocessingOptions};
+use crate::core::{Idf, MinMaxTieHeap};
 use crate::matching::types::GetPotentialMatches;
+use crate::name::{HasName, IsName};
+use crate::preprocess::{prep_name, prep_names};
 use types::{DamerauLevenshteinMatch, LevenshteinMatch, NGramMatch, TokenMatch};
 use types::{MatchMode, MatchResult, MatchResultSend};
 
-pub fn execute_match<N>(mme: &MatchModeEnum) -> Result<(), Box<dyn Error>>
+// pub fn execute_match<N>(mme: &MatchModeEnum) -> Result<(), Box<dyn Error>>
+pub fn execute_match<N>(mme: &MatchModeEnum) -> anyhow::Result<()>
 where
     N: IsName
         + Send
@@ -53,7 +51,8 @@ where
     spawn_csv_writer(&io_args.output_file, rx)?;
 
     // Dispatch by match mode
-    dispatch_match(mme, from_names, to_names, prep_opts, match_opts, tx)
+    dispatch_match(mme, from_names, to_names, prep_opts, match_opts, tx);
+    Ok(())
 }
 
 pub fn dispatch_match<N>(
@@ -63,8 +62,7 @@ pub fn dispatch_match<N>(
     prep_opts: &PreprocessingOptions,
     match_opts: &MatchOptions,
     tx: mpsc::Sender<Vec<MatchResultSend>>,
-) -> Result<(), Box<dyn Error>>
-where
+) where
     N: IsName
         + Send
         + Sync
@@ -107,80 +105,7 @@ where
             tx,
         ),
     };
-
-    Ok(())
 }
-
-// trait GetPotentialMatches<M>
-// where
-//     M: MatchMode<Self>,
-//     Self: Sized,
-// {
-//     type PotentialMatchLookup;
-
-//     fn to_names_weighted(
-//         match_mode: &M,
-//         ns: Vec<NameProcessed<Self>>,
-//         idf: &Idf,
-//     ) -> Self::PotentialMatchLookup;
-
-//     fn get_potential_names<'a>(
-//         n: &'a M::MatchableData,
-//         pml: &'a Self::PotentialMatchLookup,
-//     ) -> &'a Vec<M::MatchableData>;
-// }
-
-// impl<M> GetPotentialMatches<M> for NameUngrouped
-// where
-//     M: MatchMode<NameUngrouped> + Sync + Sized,
-//     M::MatchableData: Send + Sync,
-// {
-//     type PotentialMatchLookup = Vec<M::MatchableData>;
-
-//     fn to_names_weighted(
-//         match_mode: &M,
-//         ns: Vec<NameProcessed<Self>>,
-//         idf: &Idf,
-//     ) -> Self::PotentialMatchLookup {
-//         ns.into_par_iter()
-//             .map(|name_processed| match_mode.make_matchable_name(name_processed, &idf))
-//             .collect()
-//     }
-
-//     fn get_potential_names<'a>(
-//         _: &'a M::MatchableData,
-//         pml: &'a Self::PotentialMatchLookup,
-//     ) -> &'a Vec<M::MatchableData> {
-//         pml
-//     }
-// }
-
-// impl<M> GetPotentialMatches<M> for NameGrouped
-// where
-//     M: MatchMode<NameGrouped> + Sync + Sized,
-//     M::MatchableData: Send + Sync,
-// {
-//     type PotentialMatchLookup = (); // Vec<M::MatchableData>;
-
-//     fn to_names_weighted(
-//         _match_mode: &M,
-//         _ns: Vec<NameProcessed<Self>>,
-//         _idf: &Idf,
-//     ) -> Self::PotentialMatchLookup {
-//         todo!()
-//         // ns.into_par_iter()
-//         //     .map(|name_processed| match_mode.make_matchable_name(name_processed, &idf))
-//         //     .collect()
-//     }
-
-//     fn get_potential_names<'a>(
-//         _n: &'a M::MatchableData,
-//         _pml: &'a Self::PotentialMatchLookup,
-//     ) -> &'a Vec<M::MatchableData> {
-//         todo!()
-//         // pml
-//     }
-// }
 
 fn match_vec_to_generic<M, N>(
     match_mode: M,
@@ -202,9 +127,6 @@ fn match_vec_to_generic<M, N>(
 
     // Get the match iterator
     let to_names_weighted = N::to_names_weighted(&match_mode, to_names_processed, &idf);
-    // .into_par_iter()
-    // .map(|name_processed| match_mode.make_matchable_name(name_processed, &idf))
-    // .collect();
 
     let _: Vec<_> = from_names
         .into_par_iter()
@@ -218,7 +140,7 @@ fn match_vec_to_generic<M, N>(
                 let best_matches: Vec<_> = best_matches_for_single_name(
                     &match_mode,
                     &from_name_weighted,
-                    &to_potential_names,
+                    to_potential_names,
                     match_opts,
                 );
 
@@ -238,58 +160,6 @@ fn match_vec_to_generic<M, N>(
         })
         .collect();
 }
-
-// pub fn match_vec_to_vec<T, N>(
-//     match_mode: T,
-//     from_names: Vec<N>,
-//     to_names: Vec<N>,
-//     prep_opts: &PreprocessingOptions,
-//     match_opts: &MatchOptions,
-//     send_channel: mpsc::Sender<Vec<MatchResultSend>>,
-// ) where
-//     T: MatchMode<N> + Sync,
-//     T::MatchableData: Send + Sync,
-//     N: Sized + Send + IsName,
-// {
-//     // Create the Idf.
-//     let to_names_processed = prep_names(to_names, prep_opts);
-//     let idf: Idf = Idf::new(&to_names_processed);
-
-//     // Get the match iterator
-//     let to_names_weighted: Vec<_> = to_names_processed
-//         .into_par_iter()
-//         .map(|name_processed| match_mode.make_matchable_name(name_processed, &idf))
-//         .collect();
-
-//     let _: Vec<_> = from_names
-//         .into_par_iter()
-//         .progress()
-//         .map_with(send_channel, |s, from_name| {
-//             let from_name_processed = prep_name(from_name, prep_opts);
-//             let from_name_weighted = match_mode.make_matchable_name(from_name_processed, &idf);
-
-//             let best_matches: Vec<_> = best_matches_for_single_name(
-//                 &match_mode,
-//                 &from_name_weighted,
-//                 &to_names_weighted,
-//                 match_opts,
-//             );
-
-//             let match_results_to_send: Vec<_> = best_matches
-//                 .iter()
-//                 .map(|bm| MatchResultSend {
-//                     from_name: bm.from_name().unprocessed_name().to_string(),
-//                     from_id: bm.from_name().idx().to_string(),
-//                     to_name: bm.to_name().unprocessed_name().to_string(),
-//                     to_id: bm.to_name().idx().to_string(),
-//                     score: *bm.score(),
-//                 })
-//                 .collect();
-
-//             s.send(match_results_to_send).unwrap();
-//         })
-//         .collect();
-// }
 
 fn best_matches_for_single_name<'a, T, N>(
     match_mode: &'a T,
@@ -334,15 +204,13 @@ fn min_max_tie_heap_identity_element<'a, N>(
     MinMaxTieHeap::new(match_opts.num_results, are_tied)
 }
 
-fn spawn_csv_writer(
-    path: &str,
-    rx: mpsc::Receiver<Vec<MatchResultSend>>,
-) -> Result<(), Box<dyn Error>> {
+fn spawn_csv_writer(path: &str, rx: mpsc::Receiver<Vec<MatchResultSend>>) -> anyhow::Result<()> {
     let output_file = OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(path)
-        .map_err(|e| wrap_error(e, format!("when accessing output file {}", path)))?;
+        .with_context(|| format!("when accessing output file {}", path))?;
+    // .map_err(|e| wrap_error(e, format!("when accessing output file {}", path)))?;
 
     let mut wtr = WriterBuilder::new()
         .has_headers(true)
