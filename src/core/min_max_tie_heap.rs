@@ -1,4 +1,5 @@
 use getset::Getters;
+
 use min_max_heap::MinMaxHeap;
 
 #[derive(Getters)]
@@ -8,11 +9,13 @@ pub struct MinMaxTieHeap<T> {
     size: usize,
     #[getset(get = "pub")]
     ties: MinMaxHeap<T>,
-    are_tied: Box<dyn Fn(&T, &T) -> bool>,
+    are_tied: Box<EqualityTestFn<T>>,
 }
 
+type EqualityTestFn<T> = dyn Fn(&T, &T) -> bool;
+
 impl<T: Ord> MinMaxTieHeap<T> {
-    pub fn new(size: usize, are_tied: Box<dyn Fn(&T, &T) -> bool>) -> MinMaxTieHeap<T> {
+    pub fn new(size: usize, are_tied: Box<EqualityTestFn<T>>) -> MinMaxTieHeap<T> {
         MinMaxTieHeap {
             min_max_heap: MinMaxHeap::with_capacity(size),
             ties: MinMaxHeap::new(),
@@ -39,7 +42,7 @@ impl<T: Ord> MinMaxTieHeap<T> {
                 self.clean_up_ties();
             }
             // The element belongs in the tie heap
-            else if (self.are_tied)(&min_element, &element) {
+            else if (self.are_tied)(min_element, &element) {
                 self.ties.push(element);
                 self.clean_up_ties();
             }
@@ -52,30 +55,13 @@ impl<T: Ord> MinMaxTieHeap<T> {
         v
     }
 
-    // pub fn merge(self, other: Self) -> Self {
-    //     let mut mmth = MinMaxTieHeap::new(self.size, self.are_tied);
-    //     for element in self.min_max_heap {
-    //         mmth.push(element)
-    //     }
-    //     for element in self.ties {
-    //         mmth.push(element)
-    //     }
-    //     for element in other.min_max_heap {
-    //         mmth.push(element)
-    //     }
-    //     for element in other.ties {
-    //         mmth.push(element)
-    //     }
-    //     mmth
-    // }
-
     fn clean_up_ties(&mut self) {
         let min_element_in_mmh = &self.min_max_heap.peek_min().unwrap();
         let are_tied = &self.are_tied;
 
         while !self.ties.is_empty() {
             let min_element_in_ties = self.ties.peek_min().unwrap();
-            if !are_tied(&min_element_in_mmh, min_element_in_ties) {
+            if !are_tied(min_element_in_mmh, min_element_in_ties) {
                 self.ties.pop_min();
             } else {
                 break;

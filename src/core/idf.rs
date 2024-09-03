@@ -1,23 +1,24 @@
-use counter::Counter;
 use std::collections::{HashMap, HashSet};
 
-/// HasDocument trait yields a vector of tokens representing a document for
-/// computing an IDF.
-pub trait HasDocument {
-    fn get_tokens(&self) -> Vec<&String>;
+use counter::Counter;
+
+/// TokenDocument trait yields a vector of tokens representing a document for
+/// computing an Idf.
+pub trait TokenDocument {
+    fn token_document(&self) -> Vec<&String>;
 }
 
 /// Inverse document frequency values
 #[derive(Debug)]
-pub struct IDF {
+pub struct Idf {
     weight_map: HashMap<String, f64>,
     weight_for_missing: f64,
 }
 
-impl IDF {
+impl Idf {
     pub fn new<T>(docs: &Vec<T>) -> Self
     where
-        T: HasDocument,
+        T: TokenDocument,
     {
         let mut df = DocumentFrequency::new();
 
@@ -38,7 +39,7 @@ impl IDF {
                 )
             })
             .collect();
-        IDF {
+        Idf {
             weight_map: idf,
             weight_for_missing: ln_num_docs,
         }
@@ -55,7 +56,7 @@ impl IDF {
 /*  Document   related   types                                                */
 /******************************************************************************/
 
-/// Document frequency counter which can be converted to an IDF.
+/// Document frequency counter which can be converted to an Idf.
 #[derive(Debug)]
 struct DocumentFrequency {
     num_docs: usize,
@@ -70,11 +71,11 @@ impl DocumentFrequency {
         }
     }
 
-    fn add_document<T>(&mut self, doc: &T) -> ()
+    fn add_document<T>(&mut self, doc: &T)
     where
-        T: HasDocument,
+        T: TokenDocument,
     {
-        let unique_tokens: HashSet<&String> = doc.get_tokens().into_iter().collect();
+        let unique_tokens: HashSet<&String> = doc.token_document().into_iter().collect();
         //         name_processed.token_counter.keys().into_iter().collect();
         for k in unique_tokens {
             self.document_frequency[k] += 1;

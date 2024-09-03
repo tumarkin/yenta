@@ -1,17 +1,22 @@
 use deunicode::deunicode;
 use rayon::prelude::*;
 
-use crate::core::{Name, NameProcessed, PreprocessingOptions};
+use crate::cli::PreprocessingOptions;
+use crate::name::base::UnprocessedName;
+use crate::name::NameProcessed;
 
-pub fn prep_names(names: Vec<Name>, prep_opts: &PreprocessingOptions) -> Vec<NameProcessed> {
+pub fn prep_names<N>(names: Vec<N>, prep_opts: &PreprocessingOptions) -> Vec<NameProcessed<N>>
+where
+    N: Sized + Send + UnprocessedName,
+{
     names
         .into_par_iter()
-        .map(|n| prep_name(n, &prep_opts))
+        .map(|n| prep_name(n, prep_opts))
         .collect()
 }
 
-pub fn prep_name(name: Name, prep_opts: &PreprocessingOptions) -> NameProcessed {
-    let tokens = prep_words(&name.unprocessed(), &prep_opts);
+pub fn prep_name<N: UnprocessedName>(name: N, prep_opts: &PreprocessingOptions) -> NameProcessed<N> {
+    let tokens = prep_words(name.unprocessed_name(), prep_opts);
 
     NameProcessed::new(name, tokens)
 }
@@ -22,7 +27,7 @@ pub fn prep_words(source_string: &str, opts: &PreprocessingOptions) -> Vec<Strin
         .map(|word| {
             PrepString(word.to_string())
                 .deunicode(!opts.retain_unicode)
-                .to_ascii_lowercase(!opts.case_sensitive)
+                .ascii_lowercase(!opts.case_sensitive)
                 .filter_alphabetic(!opts.retain_non_alphabetic)
                 .soundex(opts.soundex)
                 .trim_length(opts.token_length)
@@ -43,7 +48,7 @@ impl PrepString {
         }
     }
 
-    fn to_ascii_lowercase(self, execute: bool) -> Self {
+    fn ascii_lowercase(self, execute: bool) -> Self {
         if execute {
             PrepString(self.0.to_ascii_lowercase())
         } else {

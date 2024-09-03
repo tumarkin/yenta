@@ -7,7 +7,7 @@ pub enum MatchModeEnum {
     /// Exact match on processed tokens
     TokenMatch {
         #[structopt(flatten)]
-        cli: CLI,
+        cli: Cli,
     },
     /// Fuzzy match using n-grams on processed tokens
     #[structopt(name = "ngram")]
@@ -17,41 +17,44 @@ pub enum MatchModeEnum {
         n_gram_length: usize,
 
         #[structopt(flatten)]
-        cli: CLI,
+        cli: Cli,
     },
     /// Fuzzy match using Levenshtein distance on processed tokens
     #[structopt(name = "lev")]
     Levenshtein {
         #[structopt(flatten)]
-        cli: CLI,
+        cli: Cli,
     },
     /// Fuzzy match using Damerau-Levenshtein distance on processed tokens
     #[structopt(name = "dl")]
     DamerauLevenshtein {
         #[structopt(flatten)]
-        cli: CLI,
-    },}
+        cli: Cli,
+    },
+}
 
 impl MatchModeEnum {
-    pub fn get_cli(&self) -> &CLI {
+    pub fn get_cli(&self) -> &Cli {
         match self {
-            MatchModeEnum::TokenMatch { cli } => &cli,
-            MatchModeEnum::NGramMatch { cli, .. } => &cli,
-            MatchModeEnum::Levenshtein { cli } => &cli,
-            MatchModeEnum::DamerauLevenshtein { cli } => &cli,
+            MatchModeEnum::TokenMatch { cli } => cli,
+            MatchModeEnum::NGramMatch { cli, .. } => cli,
+            MatchModeEnum::Levenshtein { cli } => cli,
+            MatchModeEnum::DamerauLevenshtein { cli } => cli,
         }
     }
 }
 
 #[derive(Debug, StructOpt)]
 #[structopt(rename_all = "kebab-case")]
-pub struct CLI {
+pub struct Cli {
     #[structopt(flatten)]
     pub io_args: IoArgs,
     #[structopt(flatten)]
     pub preprocessing_options: PreprocessingOptions,
     #[structopt(flatten)]
     pub match_options: MatchOptions,
+    #[structopt(long)]
+    pub group_match: bool,
 }
 
 // #[structopt(subcommand)]
