@@ -7,7 +7,7 @@ use ngrams::Ngram;
 
 use crate::core::Idf;
 use crate::name::score::score_combination_queue;
-use crate::name::{HasName, NameProcessed};
+use crate::name::{NameContainer, NameProcessed};
 
 /*****************************************************************************/
 /* Ngram name for approximate  matching                                      */
@@ -25,7 +25,7 @@ pub struct NameNGrams<N> {
     norm: f64,
 }
 
-impl<N> HasName<N> for NameNGrams<N> {
+impl<N> NameContainer<N> for NameNGrams<N> {
     fn get_name(&self) -> &N {
         &self.name
     }

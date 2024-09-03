@@ -4,7 +4,7 @@ use itertools::iproduct;
 use strsim::{normalized_damerau_levenshtein, normalized_levenshtein};
 
 use crate::core::idf::Idf;
-use crate::name::base::{HasName, NameProcessed};
+use crate::name::base::{NameContainer, NameProcessed};
 use crate::name::score_combination_queue;
 
 /*****************************************************************************/
@@ -23,7 +23,7 @@ pub struct NameLevenshtein<N> {
     norm: f64,
 }
 
-impl<N> HasName<N> for NameLevenshtein<N> {
+impl<N> NameContainer<N> for NameLevenshtein<N> {
     fn get_name(&self) -> &N {
         &self.name
     }
@@ -88,7 +88,7 @@ pub struct NameDamerauLevenshtein<N> {
     norm: f64,
 }
 
-impl<N> HasName<N> for NameDamerauLevenshtein<N> {
+impl<N> NameContainer<N> for NameDamerauLevenshtein<N> {
     fn get_name(&self) -> &N {
         &self.name
     }

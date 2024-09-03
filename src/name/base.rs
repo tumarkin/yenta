@@ -1,16 +1,12 @@
-use std::fs::File;
-
 use anyhow;
-use anyhow::Context;
 use counter::Counter;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
 
-use crate::core::idf::HasDocument;
+use crate::core::idf::TokenDocument;
+use crate::core::vec_from_csv;
 
-pub trait IsName {
-    type PotentialMatchesLookup;
-
+pub trait UnprocessedName {
     fn unprocessed_name(&self) -> &str;
     fn idx(&self) -> &str;
     fn from_csv(file_path: &str) -> anyhow::Result<Vec<Self>>
@@ -18,7 +14,7 @@ pub trait IsName {
         Self: Sized;
 }
 
-pub trait HasName<N> {
+pub trait NameContainer<N> {
     fn get_name(&self) -> &N;
 }
 
@@ -33,9 +29,7 @@ pub struct NameUngrouped {
     idx: String,
 }
 
-impl IsName for NameUngrouped {
-    type PotentialMatchesLookup = ();
-
+impl UnprocessedName for NameUngrouped {
     fn unprocessed_name(&self) -> &str {
         &self.unprocessed
     }
@@ -45,20 +39,7 @@ impl IsName for NameUngrouped {
     }
 
     fn from_csv(file_path: &str) -> anyhow::Result<Vec<NameUngrouped>> {
-        let file =
-            // File::open(file_path).map_err(|e| wrap_error(e, format!("accessing {}", file_path)))?;
-            File::open(file_path).with_context(|| format!("accessing {}", file_path))?;
-        let mut rdr = csv::Reader::from_reader(file);
-
-        rdr.deserialize()
-            // .into_iter()
-            .map(|result| {
-                let record: NameUngrouped = result
-                    // .map_err(|e| wrap_error(e, format!("reading data from {}", file_path)))?;
-                    .with_context(|| format!("reading data from {}", file_path))?;
-                Ok(record)
-            })
-            .collect()
+        vec_from_csv(file_path)
     }
 }
 
@@ -76,8 +57,7 @@ pub struct NameGrouped {
     group: String,
 }
 
-impl IsName for NameGrouped {
-    type PotentialMatchesLookup = ();
+impl UnprocessedName for NameGrouped {
     fn unprocessed_name(&self) -> &str {
         &self.unprocessed
     }
@@ -85,21 +65,9 @@ impl IsName for NameGrouped {
     fn idx(&self) -> &str {
         &self.idx
     }
-    fn from_csv(file_path: &str) -> anyhow::Result<Vec<NameGrouped>> {
-        let file =
-            // File::open(file_path).map_err(|e| wrap_error(e, format!("accessing {}", file_path)))?;
-            File::open(file_path).with_context(|| format!("accessing {}", file_path))?;
-        let mut rdr = csv::Reader::from_reader(file);
 
-        rdr.deserialize()
-            // .into_iter()
-            .map(|result| {
-                let record: NameGrouped = result
-                    // .map_err(|e| wrap_error(e, format!("reading data from {}", file_path)))?;
-                    .with_context(|| format!("reading data from {}", file_path))?;
-                Ok(record)
-            })
-            .collect()
+    fn from_csv(file_path: &str) -> anyhow::Result<Vec<NameGrouped>> {
+        vec_from_csv(file_path)
     }
 }
 
@@ -126,8 +94,8 @@ impl<N> NameProcessed<N> {
     }
 }
 
-impl<N> HasDocument for NameProcessed<N> {
-    fn get_tokens(&self) -> Vec<&String> {
+impl<N> TokenDocument for NameProcessed<N> {
+    fn token_document(&self) -> Vec<&String> {
         // self.token_counter().keys().into_iter().collect()
         self.token_counter().keys().collect()
     }

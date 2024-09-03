@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use getset::Getters;
 
 use crate::core::idf::Idf;
-use crate::name::base::{HasName, NameProcessed};
+use crate::name::base::{NameContainer, NameProcessed};
 
 /*****************************************************************************/
 /* Weighted name for exact token matching                                    */
@@ -20,7 +20,7 @@ pub struct NameWeighted<N> {
     norm: f64,
 }
 
-impl<N> HasName<N> for NameWeighted<N> {
+impl<N> NameContainer<N> for NameWeighted<N> {
     fn get_name(&self) -> &N {
         &self.name
     }

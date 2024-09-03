@@ -13,27 +13,27 @@ use rayon::prelude::*;
 
 use crate::cli::{MatchModeEnum, MatchOptions, PreprocessingOptions};
 use crate::core::{Idf, MinMaxTieHeap};
-use crate::matching::mode::GetPotentialMatches;
 use crate::matching::mode::MatchMode;
+use crate::matching::mode::PotentialMatches;
 use crate::matching::mode::{DamerauLevenshteinMatch, LevenshteinMatch, NGramMatch, TokenMatch};
 use crate::matching::result::{MatchResult, MatchResultSend};
-use crate::name::{HasName, IsName};
+use crate::name::{NameContainer, UnprocessedName};
 use crate::preprocess::{prep_name, prep_names};
 
 // pub fn execute_match<N>(mme: &MatchModeEnum) -> Result<(), Box<dyn Error>>
 pub fn execute_match<N>(mme: &MatchModeEnum) -> anyhow::Result<()>
 where
-    N: IsName
+    N: UnprocessedName
         + Send
         + Sync
-        + GetPotentialMatches<TokenMatch>
-        + GetPotentialMatches<NGramMatch>
-        + GetPotentialMatches<LevenshteinMatch>
-        + GetPotentialMatches<DamerauLevenshteinMatch>,
-    <N as GetPotentialMatches<TokenMatch>>::PotentialMatchLookup: Sync,
-    <N as GetPotentialMatches<NGramMatch>>::PotentialMatchLookup: Sync,
-    <N as GetPotentialMatches<LevenshteinMatch>>::PotentialMatchLookup: Sync,
-    <N as GetPotentialMatches<DamerauLevenshteinMatch>>::PotentialMatchLookup: Sync,
+        + PotentialMatches<TokenMatch>
+        + PotentialMatches<NGramMatch>
+        + PotentialMatches<LevenshteinMatch>
+        + PotentialMatches<DamerauLevenshteinMatch>,
+    <N as PotentialMatches<TokenMatch>>::Lookup: Sync,
+    <N as PotentialMatches<NGramMatch>>::Lookup: Sync,
+    <N as PotentialMatches<LevenshteinMatch>>::Lookup: Sync,
+    <N as PotentialMatches<DamerauLevenshteinMatch>>::Lookup: Sync,
 {
     let (tx, rx): (
         mpsc::Sender<Vec<MatchResultSend>>,
@@ -66,17 +66,17 @@ pub fn dispatch_match<N>(
     match_opts: &MatchOptions,
     tx: mpsc::Sender<Vec<MatchResultSend>>,
 ) where
-    N: IsName
+    N: UnprocessedName
         + Send
         + Sync
-        + GetPotentialMatches<TokenMatch>
-        + GetPotentialMatches<NGramMatch>
-        + GetPotentialMatches<LevenshteinMatch>
-        + GetPotentialMatches<DamerauLevenshteinMatch>,
-    <N as GetPotentialMatches<TokenMatch>>::PotentialMatchLookup: Sync,
-    <N as GetPotentialMatches<NGramMatch>>::PotentialMatchLookup: Sync,
-    <N as GetPotentialMatches<LevenshteinMatch>>::PotentialMatchLookup: Sync,
-    <N as GetPotentialMatches<DamerauLevenshteinMatch>>::PotentialMatchLookup: Sync,
+        + PotentialMatches<TokenMatch>
+        + PotentialMatches<NGramMatch>
+        + PotentialMatches<LevenshteinMatch>
+        + PotentialMatches<DamerauLevenshteinMatch>,
+    <N as PotentialMatches<TokenMatch>>::Lookup: Sync,
+    <N as PotentialMatches<NGramMatch>>::Lookup: Sync,
+    <N as PotentialMatches<LevenshteinMatch>>::Lookup: Sync,
+    <N as PotentialMatches<DamerauLevenshteinMatch>>::Lookup: Sync,
 {
     // Run the match
     match mme {
@@ -120,9 +120,9 @@ fn match_vec_to_generic<M, N>(
 ) where
     M: MatchMode<N> + Sync,
     M::MatchableData: Send + Sync,
-    N: Sized + Send + IsName,
-    N: GetPotentialMatches<M>,
-    <N as GetPotentialMatches<M>>::PotentialMatchLookup: Sync,
+    N: Sized + Send + UnprocessedName,
+    N: PotentialMatches<M>,
+    <N as PotentialMatches<M>>::Lookup: Sync,
 {
     // Create the Idf.
     let to_names_processed = prep_names(to_names, prep_opts);
@@ -138,7 +138,7 @@ fn match_vec_to_generic<M, N>(
             let from_name_processed = prep_name(from_name, prep_opts);
             let from_name_weighted = match_mode.make_matchable_name(from_name_processed, &idf);
             if let Some(to_potential_names) =
-                N::get_potential_names(from_name_weighted.get_name(), &to_names_weighted)
+                N::potential_matches(from_name_weighted.get_name(), &to_names_weighted)
             {
                 let best_matches: Vec<_> = best_matches_for_single_name(
                     &match_mode,

@@ -5,7 +5,7 @@ use rayon::prelude::*;
 
 use crate::core::Idf;
 use crate::matching::MatchResult;
-use crate::name::{HasName, NameGrouped, NameUngrouped};
+use crate::name::{NameContainer, NameGrouped, NameUngrouped};
 use crate::name::{
     NameDamerauLevenshtein, NameLevenshtein, NameNGrams, NameProcessed, NameWeighted,
 };
@@ -14,7 +14,7 @@ use crate::name::{
 /* MatchMode Trait                                                            */
 /******************************************************************************/
 pub trait MatchMode<N> {
-    type MatchableData: HasName<N>;
+    type MatchableData: NameContainer<N>;
 
     fn make_matchable_name(&self, np: NameProcessed<N>, idf: &Idf) -> Self::MatchableData;
     fn score_match<'a>(
@@ -24,22 +24,18 @@ pub trait MatchMode<N> {
     ) -> MatchResult<'a, N>;
 }
 
-pub trait GetPotentialMatches<M>
+pub trait PotentialMatches<M>
 where
     M: MatchMode<Self>,
     Self: Sized,
 {
-    type PotentialMatchLookup;
+    type Lookup;
 
-    fn to_names_weighted(
-        match_mode: &M,
-        ns: Vec<NameProcessed<Self>>,
-        idf: &Idf,
-    ) -> Self::PotentialMatchLookup;
+    fn to_names_weighted(match_mode: &M, ns: Vec<NameProcessed<Self>>, idf: &Idf) -> Self::Lookup;
 
-    fn get_potential_names<'a>(
+    fn potential_matches<'a>(
         n: &'a Self,
-        pml: &'a Self::PotentialMatchLookup,
+        pml: &'a Self::Lookup,
     ) -> Option<&'a Vec<M::MatchableData>>;
 }
 
@@ -151,44 +147,36 @@ impl<N> MatchMode<N> for DamerauLevenshteinMatch {
         }
     }
 }
-impl<M> GetPotentialMatches<M> for NameUngrouped
+impl<M> PotentialMatches<M> for NameUngrouped
 where
     M: MatchMode<NameUngrouped> + Sync + Sized,
     M::MatchableData: Send + Sync,
 {
-    type PotentialMatchLookup = Vec<M::MatchableData>;
+    type Lookup = Vec<M::MatchableData>;
 
-    fn to_names_weighted(
-        match_mode: &M,
-        ns: Vec<NameProcessed<Self>>,
-        idf: &Idf,
-    ) -> Self::PotentialMatchLookup {
+    fn to_names_weighted(match_mode: &M, ns: Vec<NameProcessed<Self>>, idf: &Idf) -> Self::Lookup {
         ns.into_par_iter()
             .map(|name_processed| match_mode.make_matchable_name(name_processed, idf))
             .collect()
     }
 
-    fn get_potential_names<'a>(
+    fn potential_matches<'a>(
         _: &'a Self,
-        pml: &'a Self::PotentialMatchLookup,
+        pml: &'a Self::Lookup,
     ) -> Option<&'a Vec<M::MatchableData>> {
         Some(pml)
     }
 }
 
-impl<M> GetPotentialMatches<M> for NameGrouped
+impl<M> PotentialMatches<M> for NameGrouped
 where
     M: MatchMode<NameGrouped> + Sync + Sized,
     M::MatchableData: Send + Sync,
 {
-    type PotentialMatchLookup = BTreeMap<String, Vec<M::MatchableData>>;
+    type Lookup = BTreeMap<String, Vec<M::MatchableData>>;
 
-    fn to_names_weighted(
-        match_mode: &M,
-        ns: Vec<NameProcessed<Self>>,
-        idf: &Idf,
-    ) -> Self::PotentialMatchLookup {
-        let mut pml: Self::PotentialMatchLookup = BTreeMap::new();
+    fn to_names_weighted(match_mode: &M, ns: Vec<NameProcessed<Self>>, idf: &Idf) -> Self::Lookup {
+        let mut pml: Self::Lookup = BTreeMap::new();
 
         for name_processed in ns {
             let matchable_name = match_mode.make_matchable_name(name_processed, idf);
@@ -203,9 +191,9 @@ where
         //     .collect()
     }
 
-    fn get_potential_names<'a>(
+    fn potential_matches<'a>(
         n: &'a Self,
-        pml: &'a Self::PotentialMatchLookup,
+        pml: &'a Self::Lookup,
     ) -> Option<&'a Vec<M::MatchableData>> {
         pml.get(n.group())
     }
