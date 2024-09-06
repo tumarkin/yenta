@@ -14,6 +14,13 @@ use crate::name::{NameGrouped, NameUngrouped};
 fn main() {
     let opt = MatchModeEnum::from_args();
 
+    if let Some(threads) = opt.get_cli().threads {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build_global()
+            .unwrap();
+    }
+
     let res = match opt.get_cli().group_match {
         true => execute_match::<NameGrouped>(&opt),
         false => execute_match::<NameUngrouped>(&opt),

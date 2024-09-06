@@ -55,6 +55,8 @@ pub struct Cli {
     pub match_options: MatchOptions,
     #[structopt(long)]
     pub group_match: bool,
+    #[structopt(long, help = "Explicit number of threads")]
+    pub threads: Option<usize>,
 }
 
 // #[structopt(subcommand)]
